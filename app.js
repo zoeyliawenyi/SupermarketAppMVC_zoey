@@ -274,11 +274,13 @@ app.get('/shopping', checkAuthenticated, (req, res) => {
 app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     const productId = parseInt(req.params.id, 10);
     const quantity = parseInt(req.body.quantity, 10) || 1;
+    const wantsJson = (req.get('accept') || '').includes('application/json') || req.xhr;
+    const isBuy = (req.query.buy === '1') || (req.body.buy === '1');
 
     connection.query('SELECT * FROM products WHERE id = ?', [productId], (error, results) => {
         if (error) {
             console.error('DB error /add-to-cart:', error);
-            return res.status(500).send('Database error');
+            return wantsJson ? res.status(500).json({ success: false, message: 'Database error' }) : res.status(500).send('Database error');
         }
 
         if (results.length > 0) {
@@ -304,9 +306,15 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
                 });
             }
 
-            res.redirect('/cart');
+            if (wantsJson) {
+                return res.json({ success: true });
+            }
+            if (isBuy) {
+                return res.redirect('/cart');
+            }
+            return res.redirect('/shopping');
         } else {
-            res.status(404).send("Product not found");
+            return wantsJson ? res.status(404).json({ success: false, message: 'Product not found' }) : res.status(404).send("Product not found");
         }
     });
 });

@@ -327,6 +327,50 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
     font-weight: 600;
 }
 
+.pill-badge.small {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.pill-badge.halal {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16804a;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.qty-control {
+    display: inline-flex;
+    align-items: center;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+    background: #fff;
+}
+
+.qty-btn {
+    border: none;
+    background: transparent;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.qty-input {
+    width: 48px;
+    text-align: center;
+    border: none;
+    outline: none;
+    font-weight: 600;
+}
+
+.buy-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-top: 12px;
+}
+
 @media (max-width: 900px) {
     .hero { grid-template-columns: 1fr; }
     .nav { position: static; }
@@ -361,15 +405,34 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         <span class="muted">Hi, <%= user.username %> (<%= user.role %>)</span>
       </div>
       <% if (product) { %>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; align-items:start;">
+        <%
+          const dietLower = (product.dietary || '').toLowerCase();
+          const badgeClass = dietLower === 'halal' ? 'pill-badge small halal' : 'pill-badge small';
+          const maxQty = Math.min(5, product.quantity || product.stock || 5);
+        %>
+        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:18px; align-items:start;">
           <div>
-            <img src="/images/<%= product.image %>" alt="<%= product.productName %>" style="width:100%; max-width:320px; border-radius:14px; border:1px solid var(--border);">
+            <img src="/images/<%= product.image %>" alt="<%= product.productName %>" style="width:100%; max-width:360px; border-radius:14px; border:1px solid var(--border);">
           </div>
           <div>
-            <h3><%= product.productName %></h3>
-            <p class="pill-badge">In stock: <%= product.quantity %></p>
-            <p class="price" style="margin-top:8px;">$ <%= product.price.toFixed(2) %></p>
-            <p class="muted">Tap Shop to add to your cart.</p>
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+              <h3 style="margin:0;"><%= product.productName %></h3>
+              <% if (product.category) { %><span class="pill-badge small"><%= product.category %></span><% } %>
+              <% if (product.dietary) { %><span class="<%= badgeClass %>"><%= product.dietary %></span><% } %>
+            </div>
+            <div class="muted" style="margin-top:8px;">Category: <strong><%= product.category || '-' %></strong></div>
+            <div class="muted" style="margin-top:4px;">Dietary: <strong style="color:<%= dietLower === 'halal' ? '#16804a' : 'inherit' %>;"><%= product.dietary || '-' %></strong></div>
+            <p style="margin-top:10px;"><%= product.description || 'No description available.' %></p>
+            <p class="price" style="margin-top:8px;">$ <%= Number(product.price).toFixed(2) %></p>
+            <form action="/add-to-cart/<%= product.id %>" method="POST" class="buy-row" data-max="<%= maxQty %>">
+              <div class="qty-control">
+                <button type="button" class="qty-btn" data-step="-1">-</button>
+                <input class="qty-input" type="text" name="quantity" value="1" readonly>
+                <button type="button" class="qty-btn" data-step="1">+</button>
+              </div>
+              <button class="cta secondary" type="submit">Add to cart</button>
+              <button class="cta" type="submit" formaction="/checkout" formmethod="POST">Buy</button>
+            </form>
           </div>
         </div>
       <% } else { %>
@@ -384,6 +447,21 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       </div>
     </div>
   </div>
+  <script>
+    document.querySelectorAll('.buy-row').forEach(form => {
+      const max = parseInt(form.dataset.max || '5', 10);
+      const input = form.querySelector('.qty-input');
+      form.addEventListener('click', (e) => {
+        const btn = e.target.closest('.qty-btn');
+        if (!btn) return;
+        const step = Number(btn.dataset.step || 0);
+        let val = parseInt(input.value || '1', 10);
+        val = isNaN(val) ? 1 : val;
+        val = Math.min(max, Math.max(1, val + step));
+        input.value = val;
+      });
+    });
+  </script>
 </body>
 </html>
 
