@@ -4,6 +4,7 @@ const session = require('express-session');
 const flash = require('connect-flash');
 const multer = require('multer');
 const app = express();
+const adminController = require('./controllers/AdminController');
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({
@@ -79,8 +80,21 @@ const validateRegistration = (req, res, next) => {
 
 // Define routes
 app.get('/',  (req, res) => {
-    res.render('index', {user: req.session.user} );
+    connection.query('SELECT * FROM products LIMIT 8', (error, results) => {
+        if (error) {
+            console.error('DB error / home:', error);
+            return res.render('index', { user: req.session.user, products: [] });
+        }
+        res.render('index', {user: req.session.user, products: results || []} );
+    });
 });
+
+// Admin-only routes
+app.get('/admin/dashboard', checkAuthenticated, checkAdmin, adminController.dashboard);
+app.get('/admin/users', checkAuthenticated, checkAdmin, adminController.listUsers);
+app.post('/admin/users/:id/role', checkAuthenticated, checkAdmin, adminController.changeUserRole);
+app.post('/admin/users/:id/delete', checkAuthenticated, checkAdmin, adminController.removeUser);
+app.get('/admin/orders', checkAuthenticated, checkAdmin, adminController.listOrders);
 
 app.get('/inventory', checkAuthenticated, checkAdmin, (req, res) => {
     // Fetch data from MySQL
@@ -227,7 +241,7 @@ app.get('/addProduct', checkAuthenticated, checkAdmin, (req, res) => {
     res.render('addProduct', {user: req.session.user } ); 
 });
 
-app.post('/addProduct', upload.single('image'),  (req, res) => {
+app.post('/addProduct', checkAuthenticated, checkAdmin, upload.single('image'),  (req, res) => {
     // Extract product data from the request body
     const { name, quantity, price} = req.body;
     let image;
@@ -270,7 +284,7 @@ app.get('/updateProduct/:id', checkAuthenticated, checkAdmin, (req, res) => {
     }})
 });
 
-app.post('/updateProduct/:id', upload.single('image'), (req, res) => {
+app.post('/updateProduct/:id', checkAuthenticated, checkAdmin, upload.single('image'), (req, res) => {
     const productId = req.params.id;
     // Extract product data from the request body
     const { name, quantity, price } = req.body;
@@ -293,7 +307,7 @@ app.post('/updateProduct/:id', upload.single('image'), (req, res) => {
     });
 });
 
-app.get('/deleteProduct/:id', (req, res) => {
+app.get('/deleteProduct/:id', checkAuthenticated, checkAdmin, (req, res) => {
     const productId = req.params.id;
     
     connection.query('DELETE FROM products WHERE id = ?', [productId], (error, results) => {
