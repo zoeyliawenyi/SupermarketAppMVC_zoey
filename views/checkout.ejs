@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Checkout</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+
+:root {
+    --bg: #ffffff;
+    --panel: #f7f8fc;
+    --card: #ffffff;
+    --accent: #ff5c8a;
+    --accent-2: #ff8fb1;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --shadow: 0 12px 30px rgba(17, 24, 39, 0.08);
+    --radius: 16px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: 'Poppins', sans-serif;
+    background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: #ff3d77; }
+
+.shell { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+.nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #ffffff;
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 18px;
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 18px;
+    z-index: 10;
+}
+
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; letter-spacing: .5px; color: var(--text); }
+.brand .dot { width: 12px; height: 12px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 0 10px rgba(255, 92, 138, 0.6); }
+
+.nav-links { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.nav-links a { padding: 8px 14px; border-radius: 10px; color: var(--text); font-weight: 500; transition: background 0.2s, color 0.2s, transform 0.2s; }
+.nav-links a:hover { background: rgba(255, 92, 138, 0.12); color: var(--text); transform: translateY(-1px); }
+.pill { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #ffffff !important; box-shadow: 0 10px 30px rgba(255, 92, 138, 0.35); }
+
+.cart-link { position: relative; display: inline-flex; align-items: center; gap: 6px; }
+.cart-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 2px 6px; border-radius: 999px; background: #16804a; color: #fff; font-size: 12px; font-weight: 700; }
+
+.grid-2 { display: grid; grid-template-columns: 2fr 1.1fr; gap: 16px; }
+.card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
+
+.section-title { margin: 0 0 6px; font-size: 18px; }
+.muted { color: var(--muted); }
+
+.shipping-box { border: 1px solid var(--border); border-radius: 12px; padding: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.edit-btn { border: none; background: transparent; cursor: pointer; color: var(--accent); }
+
+.option-list { display: grid; gap: 10px; }
+.option-item { display: flex; align-items: center; gap: 10px; }
+
+.summary-row { display: flex; justify-content: space-between; margin: 6px 0; }
+.divider { border-top: 1px solid var(--border); margin: 10px 0; }
+
+.cta {
+    padding: 12px 16px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    color: #ffffff;
+    background: linear-gradient(135deg, #f11d8a, #b9102c);
+    box-shadow: 0 10px 30px #b9102c;
+}
+.cta.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+    box-shadow: none;
+}
+
+.card-form {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    background: #f9fafb;
+    display: grid;
+    gap: 10px;
+}
+
+.card-form-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+
+.btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.25);
+    display: none;
+    align-items: center;
+    justify-content: center;
+}
+.modal {
+    background: #fff;
+    padding: 16px;
+    border-radius: 12px;
+    width: 320px;
+    box-shadow: var(--shadow);
+}
+.modal h4 { margin: 0 0 8px; }
+.modal label { display:block; margin: 8px 0 4px; font-weight:600; }
+.modal input, .modal textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+}
+.modal textarea { resize: vertical; min-height: 80px; }
+.modal-actions { display:flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+.hidden { display: none; }
+
+.paynow-modal {
+    background: #fff;
+    padding: 16px;
+    border-radius: 12px;
+    width: 360px;
+    box-shadow: var(--shadow);
+    text-align: center;
+}
+
+.countdown {
+    font-weight: 700;
+    color: #d14343;
+    margin-bottom: 10px;
+}
+
+@media (max-width: 900px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  .nav { position: static; }
+}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand">
+        <span class="dot"></span>
+        ZozoMart
+      </div>
+      <div class="nav-links">
+        <a href="/">Home</a>
+        <a href="/shopping">Shop</a>
+        <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
+        <a class="pill" href="/logout">Logout</a>
+      </div>
+    </nav>
+
+    <div class="hero-card" style="margin-top:20px;">
+      <div class="section-head">
+        <h2>Checkout</h2>
+        <span class="muted">Review your cart and choose shipping & payment.</span>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 class="section-title">Shipping details</h3>
+          <div class="shipping-box">
+            <div>
+              <div style="font-weight:700;"><%= user.username %></div>
+              <div class="muted" id="shipContact"><%= shipping.contact || 'No contact saved' %></div>
+              <div class="muted" id="shipAddress"><%= shipping.address || 'No address saved' %></div>
+            </div>
+            <button class="edit-btn" id="editShipping" type="button">✏️</button>
+          </div>
+
+          <h3 class="section-title" style="margin-top:16px;">Shipping option</h3>
+          <div class="card" style="box-shadow:none; border:1px solid var(--border);">
+            <div class="option-list">
+              <label class="option-item">
+                <input type="radio" name="shipOption" value="pickup" data-cost="0" <%= shipping.option === 'pickup' ? 'checked' : '' %>>
+                <span>Store pickup - $0.00</span>
+              </label>
+              <label class="option-item">
+                <input type="radio" name="shipOption" value="delivery" data-cost="2" <%= shipping.option === 'delivery' ? 'checked' : '' %>>
+                <span>Doorstep delivery - $2.00</span>
+              </label>
+            </div>
+          </div>
+
+          <h3 class="section-title" style="margin-top:16px;">Payment method</h3>
+          <div class="card" style="box-shadow:none; border:1px solid var(--border);">
+            <div class="option-list">
+              <label class="option-item">
+                <input type="radio" name="paymentMethod" value="paynow" <%= shipping.payment === 'paynow' ? 'checked' : '' %>>
+                <span>PayNow</span>
+              </label>
+              <label class="option-item">
+                <input type="radio" name="paymentMethod" value="card" <%= shipping.payment === 'card' ? 'checked' : '' %>>
+                <span>Credit/Debit Card</span>
+              </label>
+            </div>
+            <div id="cardFields" class="<%= shipping.payment === 'card' ? '' : 'hidden' %> card-form" style="margin-top:10px;">
+              <div>
+                <label style="font-weight:600; margin-bottom:4px; display:block;">Card number</label>
+                <input class="input" type="text" id="cardNumber" placeholder="16 digits" maxlength="16" pattern="[0-9]{16}" title="Card number must be 16 digits" autocomplete="off" inputmode="numeric">
+              </div>
+              <div class="card-form-row">
+                <div>
+                  <label style="font-weight:600; margin-bottom:4px; display:block;">Expiry (MM/YY)</label>
+                  <div style="display:flex; gap:8px;">
+                    <select class="input" id="cardExpMonth" autocomplete="off">
+                      <% for(let m=1;m<=12;m++){ const mm = m.toString().padStart(2,'0'); %>
+                        <option value="<%= mm %>"><%= mm %></option>
+                      <% } %>
+                    </select>
+                    <select class="input" id="cardExpYear" autocomplete="off">
+                      <% const yearNow = new Date().getFullYear(); for(let y=0;y<10;y++){ const yr = yearNow + y; %>
+                        <option value="<%= yr %>"><%= yr %></option>
+                      <% } %>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label style="font-weight:600; margin-bottom:4px; display:block;">CVV</label>
+                  <input class="input" type="text" id="cardCvv" placeholder="3 digits" maxlength="3" pattern="[0-9]{3}" title="CVV must be 3 digits" autocomplete="off" inputmode="numeric">
+                </div>
+              </div>
+              <div>
+                <label style="font-weight:600; margin-bottom:4px; display:block;">Name on card</label>
+                <input class="input" type="text" id="cardName" placeholder="As on card" autocomplete="off">
+              </div>
+              <div>
+                <label style="font-weight:600; margin-bottom:4px; display:block;">Billing address</label>
+                <textarea class="input" id="cardBilling" autocomplete="off"><%= shipping.address || '' %></textarea>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3 class="section-title">Order summary</h3>
+          <div>
+            <% cart.forEach(function(item){ %>
+              <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
+                <img src="/images/<%= item.image %>" alt="<%= item.productName %>" style="width:54px; height:54px; object-fit:cover; border-radius:10px; border:1px solid var(--border);">
+                <div style="flex:1;">
+                  <div style="font-weight:700;"><%= item.productName %></div>
+                  <div class="muted">Qty: <%= item.quantity %></div>
+                </div>
+                <div style="font-weight:700;">$ <%= (item.price * item.quantity).toFixed(2) %></div>
+              </div>
+            <% }) %>
+          </div>
+          <div class="divider"></div>
+          <div class="summary-row"><span>Total quantity</span><span><%= totalQuantity %></span></div>
+          <div class="summary-row"><span>Subtotal</span><span>$ <%= subtotal.toFixed(2) %></span></div>
+          <div class="summary-row"><span>Shipping</span><span id="shipCostTxt">$ <%= shippingCost.toFixed(2) %></span></div>
+          <div class="divider"></div>
+          <div class="summary-row" style="font-weight:700; font-size:18px;"><span>Total</span><span id="totalTxt">$ <%= total.toFixed(2) %></span></div>
+          <div class="btn-group" style="margin-top:14px;">
+            <button class="cta" type="button" id="placeOrderBtn">Place order</button>
+            <a class="cta secondary" href="/cart">Back to cart</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalBackdrop">
+    <div class="modal">
+      <h4>Edit shipping details</h4>
+      <label>Contact</label>
+      <input type="text" id="editContact" value="<%= shipping.contact || '' %>">
+      <label>Address</label>
+      <textarea id="editAddress"><%= shipping.address || '' %></textarea>
+      <div class="modal-actions">
+        <button class="cta secondary" type="button" id="cancelEdit">Cancel</button>
+        <button class="cta" type="button" id="saveEdit">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="paynowBackdrop" style="display:none;">
+    <div class="paynow-modal">
+      <h4>PayNow</h4>
+      <div class="countdown" id="paynowCountdown">30:00</div>
+      <p class="muted">Scan the QR to pay. We will confirm your payment shortly.</p>
+      <p style="font-weight:700;">Total: $ <%= total.toFixed(2) %></p>
+      <img src="/images/paynow.jpg" alt="PayNow QR" style="width:240px; height:240px; object-fit:cover; border-radius:10px; border:1px solid var(--border);">
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      const shipCostTxt = document.getElementById('shipCostTxt');
+      const totalTxt = document.getElementById('totalTxt');
+      const subtotalVal = <%= subtotal %>;
+
+      function recalcTotal() {
+        const checked = document.querySelector('input[name="shipOption"]:checked');
+        const shipCost = parseFloat(checked ? checked.dataset.cost : '0') || 0;
+        shipCostTxt.textContent = '$ ' + shipCost.toFixed(2);
+        totalTxt.textContent = '$ ' + (subtotalVal + shipCost).toFixed(2);
+      }
+
+      document.querySelectorAll('input[name="shipOption"]').forEach(r => {
+        r.addEventListener('change', async () => {
+          recalcTotal();
+          await fetch('/checkout/option', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'option=' + encodeURIComponent(r.value)
+          });
+        });
+      });
+
+      document.querySelectorAll('input[name="paymentMethod"]').forEach(r => {
+        r.addEventListener('change', async () => {
+          const cardFields = document.getElementById('cardFields');
+          const isCard = r.value === 'card';
+          cardFields.classList.toggle('hidden', !isCard);
+          await fetch('/checkout/payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'payment=' + encodeURIComponent(r.value)
+          });
+        });
+      });
+
+      // modal edit
+      const modal = document.getElementById('modalBackdrop');
+      const editBtn = document.getElementById('editShipping');
+      const cancelEdit = document.getElementById('cancelEdit');
+      const saveEdit = document.getElementById('saveEdit');
+      const contactEl = document.getElementById('shipContact');
+      const addressEl = document.getElementById('shipAddress');
+      const editContact = document.getElementById('editContact');
+      const editAddress = document.getElementById('editAddress');
+      const billingField = document.getElementById('cardBilling');
+      const paynowBackdrop = document.getElementById('paynowBackdrop');
+      const paynowCountdown = document.getElementById('paynowCountdown');
+
+      // ensure billing mirrors shipping on load
+      (function syncBillingOnLoad(){
+        const initialAddress = `<%= (shipping.address || '').replace(/"/g, '\\"') %>`;
+        if (billingField && initialAddress) {
+          billingField.value = initialAddress;
+        }
+      })();
+
+      function closeModal(){ modal.style.display = 'none'; }
+      function openModal(){ modal.style.display = 'flex'; }
+
+      editBtn.addEventListener('click', openModal);
+      cancelEdit.addEventListener('click', closeModal);
+      saveEdit.addEventListener('click', async () => {
+        const contact = editContact.value.trim();
+        const address = editAddress.value.trim();
+        await fetch('/checkout/shipping', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: 'contact=' + encodeURIComponent(contact) + '&address=' + encodeURIComponent(address)
+        });
+        contactEl.textContent = contact || 'No contact saved';
+        addressEl.textContent = address || 'No address saved';
+        const billing = document.getElementById('cardBilling');
+        if (billing) billing.value = address;
+        closeModal();
+      });
+
+      recalcTotal();
+
+      document.getElementById('placeOrderBtn').addEventListener('click', () => {
+        const payMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'paynow';
+        if (payMethod === 'paynow') {
+          paynowBackdrop.style.display = 'flex';
+          let remaining = 30 * 60;
+          const interval = setInterval(() => {
+            remaining--;
+            const m = Math.floor(remaining / 60).toString().padStart(2, '0');
+            const s = (remaining % 60).toString().padStart(2, '0');
+            paynowCountdown.textContent = `${m}:${s}`;
+            if (remaining <= 0) clearInterval(interval);
+          }, 1000);
+          setTimeout(() => {
+            clearInterval(interval);
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/place-order';
+            document.body.appendChild(form);
+            form.submit();
+          }, 8000);
+        } else {
+          const form = document.createElement('form');
+          form.method = 'POST';
+          form.action = '/place-order';
+          document.body.appendChild(form);
+          form.submit();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

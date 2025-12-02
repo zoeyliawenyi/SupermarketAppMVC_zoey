@@ -368,7 +368,77 @@ app.get('/checkout', checkAuthenticated, (req, res) => {
         req.flash('error', 'Your cart is empty');
         return res.redirect('/cart');
     }
-    res.render('cart', { cart, user: req.session.user, checkoutMode: true });
+    const shipping = req.session.checkoutShipping || {
+        contact: req.session.user ? req.session.user.contact : '',
+        address: req.session.user ? req.session.user.address : '',
+        option: 'pickup',
+        payment: 'paynow'
+    };
+    const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const total = subtotal + shippingCost;
+    res.render('checkout', {
+        cart,
+        user: req.session.user,
+        shipping,
+        shippingCost,
+        subtotal,
+        total,
+        totalQuantity
+    });
+});
+
+app.post('/checkout/shipping', checkAuthenticated, (req, res) => {
+    const { contact, address } = req.body;
+    if (!req.session.checkoutShipping) req.session.checkoutShipping = {};
+    req.session.checkoutShipping.contact = contact || '';
+    req.session.checkoutShipping.address = address || '';
+    res.json({ success: true, contact, address });
+});
+
+app.post('/checkout/option', checkAuthenticated, (req, res) => {
+    const { option } = req.body;
+    if (!req.session.checkoutShipping) req.session.checkoutShipping = {};
+    req.session.checkoutShipping.option = option === 'delivery' ? 'delivery' : 'pickup';
+    res.json({ success: true, option: req.session.checkoutShipping.option });
+});
+
+app.post('/checkout/payment', checkAuthenticated, (req, res) => {
+    const { payment } = req.body;
+    if (!req.session.checkoutShipping) req.session.checkoutShipping = {};
+    req.session.checkoutShipping.payment = payment === 'card' ? 'card' : 'paynow';
+    res.json({ success: true, payment: req.session.checkoutShipping.payment });
+});
+
+app.post('/place-order', checkAuthenticated, (req, res) => {
+    const cart = req.session.cart || [];
+    if (!cart.length) {
+        req.flash('error', 'Your cart is empty');
+        return res.redirect('/cart');
+    }
+    const shipping = req.session.checkoutShipping || { option: 'pickup', payment: 'paynow', contact: '', address: '' };
+    const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const total = subtotal + shippingCost;
+
+    req.session.lastOrder = {
+        items: cart,
+        shipping,
+        subtotal,
+        shippingCost,
+        total,
+        date: new Date().toISOString()
+    };
+
+    req.session.cart = [];
+    res.locals.cartCount = 0;
+    res.redirect('/orders');
+});
+
+app.get('/orders', checkAuthenticated, (req, res) => {
+    const order = req.session.lastOrder || null;
+    res.render('orders', { user: req.session.user, order });
 });
 
 app.get('/logout', (req, res) => {
