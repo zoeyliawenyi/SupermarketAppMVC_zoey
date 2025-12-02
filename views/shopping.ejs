@@ -202,8 +202,9 @@ a:hover { color: #ff3d77; }
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(220px, 240px));
     gap: 16px;
+    justify-content: start;
 }
 
 .card {
@@ -213,6 +214,7 @@ a:hover { color: #ff3d77; }
     padding: 16px;
     display: flex;
     flex-direction: column;
+    height: 100%;
     gap: 12px;
     box-shadow: var(--shadow);
     transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
@@ -336,6 +338,52 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
     grid-template-columns: 1fr;
 }
 
+.filters {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+    align-items: center;
+}
+
+.filter-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow);
+}
+
+.filter-field input,
+.filter-field select {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 14px;
+    background: transparent;
+}
+
+.filter-label {
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.reset-btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s, transform .2s;
+}
+
+.reset-btn:hover { background: rgba(255,92,138,0.08); transform: translateY(-1px); }
+
 </style>
 </head>
 <body>
@@ -367,11 +415,56 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         <h2>Shop all products</h2>
         <a class="pill-action" href="/cart">Go to cart</a>
       </div>
+      <% const categories = Array.from(new Set((products || []).map(p => p.category).filter(Boolean))); %>
+      <% const diets = Array.from(new Set((products || []).map(p => p.dietary).filter(Boolean))); %>
+      <div class="filters">
+        <div>
+          <div class="filter-label">Search</div>
+          <div class="filter-field">
+            <input id="searchBox" type="text" placeholder="Name" autocomplete="off">
+          </div>
+        </div>
+        <div>
+          <div class="filter-label">Category</div>
+          <div class="filter-field">
+            <select id="categoryFilter">
+              <option value="">All categories</option>
+              <% categories.forEach(function(c){ %>
+                <option value="<%= c %>"><%= c %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+        <div>
+          <div class="filter-label">Dietary</div>
+          <div class="filter-field">
+            <select id="dietaryFilter">
+              <option value="">All dietary</option>
+              <% diets.forEach(function(d){ %>
+                <option value="<%= d %>"><%= d %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+        <div>
+          <div class="filter-label">Sort</div>
+          <div class="filter-field">
+            <select id="sortSelect">
+              <option value="name-asc">Name A → Z</option>
+              <option value="name-desc">Name Z → A</option>
+              <option value="price-asc">Price low → high</option>
+              <option value="price-desc">Price high → low</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="reset-btn" id="resetFilters" type="button">Reset</button>
+        </div>
+      </div>
       <div class="grid">
         <% products.forEach(function(p){ %>
-          <form class="card" action="/add-to-cart/<%= p.id %>" method="POST">
+          <form class="card" action="/add-to-cart/<%= p.id %>" method="POST" data-name="<%= (p.productName || '').toLowerCase() %>" data-category="<%= (p.category || '').toLowerCase() %>" data-dietary="<%= (p.dietary || '').toLowerCase() %>" data-price="<%= Number(p.price).toFixed(2) %>">
             <img src="/images/<%= p.image %>" alt="<%= p.productName %>">
-            <div class="pill-badge">In stock: <%= p.stock %></div>
             <h3><%= p.productName %></h3>
             <div class="price">$ <%= Number(p.price).toFixed(2) %></div>
             <div class="card-actions">
@@ -389,6 +482,60 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   </div>
 </body>
 </html>
+<script>
+  (function(){
+    const cards = Array.from(document.querySelectorAll('.grid .card'));
+    const searchBox = document.getElementById('searchBox');
+    const categoryFilter = document.getElementById('categoryFilter');
+    const dietaryFilter = document.getElementById('dietaryFilter');
+    const sortSelect = document.getElementById('sortSelect');
+    const resetBtn = document.getElementById('resetFilters');
+
+    function applyFilters(){
+      const q = (searchBox.value || '').trim().toLowerCase();
+      const cat = (categoryFilter.value || '').toLowerCase();
+      const diet = (dietaryFilter.value || '').toLowerCase();
+      const sort = sortSelect.value;
+
+      let filtered = cards.filter(card => {
+        const name = card.dataset.name;
+        const category = card.dataset.category;
+        const dietary = card.dataset.dietary;
+
+        const matchesSearch = q ? name.startsWith(q) : true;
+        const matchesCategory = cat ? category === cat : true;
+        const matchesDietary = diet ? dietary === diet : true;
+        return matchesSearch && matchesCategory && matchesDietary;
+      });
+
+      const sorters = {
+        'name-asc': (a,b) => a.dataset.name.localeCompare(b.dataset.name),
+        'name-desc': (a,b) => b.dataset.name.localeCompare(a.dataset.name),
+        'price-asc': (a,b) => Number(a.dataset.price) - Number(b.dataset.price),
+        'price-desc': (a,b) => Number(b.dataset.price) - Number(a.dataset.price),
+      };
+      if (sorters[sort]) filtered.sort(sorters[sort]);
+
+      const grid = document.querySelector('.grid');
+      grid.innerHTML = '';
+      filtered.forEach(card => grid.appendChild(card));
+    }
+
+    searchBox.addEventListener('input', applyFilters);
+    categoryFilter.addEventListener('change', applyFilters);
+    dietaryFilter.addEventListener('change', applyFilters);
+    sortSelect.addEventListener('change', applyFilters);
+    resetBtn.addEventListener('click', () => {
+      searchBox.value = '';
+      categoryFilter.value = '';
+      dietaryFilter.value = '';
+      sortSelect.value = 'name-asc';
+      applyFilters();
+    });
+
+    applyFilters();
+  })();
+</script>
 
 
 
