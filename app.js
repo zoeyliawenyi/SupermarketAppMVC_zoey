@@ -41,6 +41,14 @@ app.use(session({
 
 app.use(flash());
 
+// expose user and cart count to all views
+app.use((req, res, next) => {
+    res.locals.user = req.session.user;
+    const cart = req.session.cart || [];
+    res.locals.cartCount = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    next();
+});
+
 // Middleware to check if user is logged in
 const checkAuthenticated = (req, res, next) => {
     if (req.session.user) {
@@ -277,6 +285,8 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     const wantsJson = (req.get('accept') || '').includes('application/json') || req.xhr;
     const isBuy = (req.query.buy === '1') || (req.body.buy === '1');
 
+    const calculateCartTotal = (cartArr) => cartArr.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+
     connection.query('SELECT * FROM products WHERE id = ?', [productId], (error, results) => {
         if (error) {
             console.error('DB error /add-to-cart:', error);
@@ -306,8 +316,11 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
                 });
             }
 
+            // update cartCount local
+            res.locals.cartCount = req.session.cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+
             if (wantsJson) {
-                return res.json({ success: true });
+                return res.json({ success: true, cartTotal: calculateCartTotal(req.session.cart) });
             }
             if (isBuy) {
                 return res.redirect('/cart');
@@ -319,9 +332,43 @@ app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     });
 });
 
+// Update quantity in cart
+app.post('/cart/update/:id', checkAuthenticated, (req, res) => {
+    const productId = parseInt(req.params.id, 10);
+    const quantity = Math.max(1, parseInt(req.body.quantity, 10) || 1);
+    const cart = req.session.cart || [];
+    const item = cart.find(i => i.productId === productId);
+    if (!item) return res.status(404).json({ success: false, message: 'Item not found' });
+    item.quantity = quantity;
+    const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const cartCount = cart.reduce((sum, i) => sum + (i.quantity || 0), 0);
+    req.session.cart = cart;
+    res.json({ success: true, quantity, lineTotal: (item.price * item.quantity).toFixed(2), cartTotal: cartTotal.toFixed(2), cartCount });
+});
+
+// Delete item from cart
+app.post('/cart/delete/:id', checkAuthenticated, (req, res) => {
+    const productId = parseInt(req.params.id, 10);
+    let cart = req.session.cart || [];
+    cart = cart.filter(i => i.productId !== productId);
+    req.session.cart = cart;
+    const cartTotal = cart.reduce((sum, i) => sum + i.price * i.quantity, 0);
+    const cartCount = cart.reduce((sum, i) => sum + (i.quantity || 0), 0);
+    res.json({ success: true, cartTotal: cartTotal.toFixed(2), cartCount });
+});
+
 app.get('/cart', checkAuthenticated, (req, res) => {
     const cart = req.session.cart || [];
     res.render('cart', { cart, user: req.session.user });
+});
+
+app.get('/checkout', checkAuthenticated, (req, res) => {
+    const cart = req.session.cart || [];
+    if (!cart.length) {
+        req.flash('error', 'Your cart is empty');
+        return res.redirect('/cart');
+    }
+    res.render('cart', { cart, user: req.session.user, checkoutMode: true });
 });
 
 app.get('/logout', (req, res) => {
