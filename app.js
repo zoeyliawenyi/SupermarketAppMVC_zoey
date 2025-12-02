@@ -5,6 +5,8 @@ const flash = require('connect-flash');
 const multer = require('multer');
 const app = express();
 const adminController = require('./controllers/AdminController');
+const orderController = require('./controllers/OrderController');
+const Order = require('./models/Order');
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({
@@ -111,7 +113,7 @@ app.get('/admin/dashboard', checkAuthenticated, checkAdmin, adminController.dash
 app.get('/admin/users', checkAuthenticated, checkAdmin, adminController.listUsers);
 app.post('/admin/users/:id/role', checkAuthenticated, checkAdmin, adminController.changeUserRole);
 app.post('/admin/users/:id/delete', checkAuthenticated, checkAdmin, adminController.removeUser);
-app.get('/admin/orders', checkAuthenticated, checkAdmin, adminController.listOrders);
+app.get('/admin/orders', checkAuthenticated, checkAdmin, orderController.listAll);
 
 // Forgot password
 app.get('/forgot-password', (req, res) => {
@@ -422,23 +424,43 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const total = subtotal + shippingCost;
 
-    req.session.lastOrder = {
-        items: cart,
-        shipping,
-        subtotal,
-        shippingCost,
+    const orderPayload = {
+        userId: req.session.user.id,
         total,
-        date: new Date().toISOString()
+        paymentMethod: shipping.payment,
+        deliveryType: shipping.option,
+        address: shipping.address,
+        status: 'placed'
     };
 
-    req.session.cart = [];
-    res.locals.cartCount = 0;
-    res.redirect('/orders');
+    Order.create(orderPayload, (err, orderId) => {
+        if (err) {
+            console.error('DB error /place-order:', err);
+            req.flash('error', 'Could not place order.');
+            return res.redirect('/cart');
+        }
+        req.session.lastOrder = {
+            id: orderId,
+            items: cart,
+            shipping,
+            subtotal,
+            shippingCost,
+            total,
+            date: new Date().toISOString()
+        };
+        req.session.cart = [];
+        res.locals.cartCount = 0;
+        res.redirect(`/orders/success?id=${orderId}`);
+    });
 });
 
 app.get('/orders', checkAuthenticated, (req, res) => {
-    const order = req.session.lastOrder || null;
-    res.render('orders', { user: req.session.user, order });
+    orderController.listUserOrders(req, res);
+});
+
+app.get('/orders/success', checkAuthenticated, (req, res) => {
+    const id = req.query.id || (req.session.lastOrder && req.session.lastOrder.id);
+    res.render('orderSuccess', { orderId: id || '—' });
 });
 
 app.get('/logout', (req, res) => {
