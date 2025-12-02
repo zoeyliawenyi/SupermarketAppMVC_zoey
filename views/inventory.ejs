@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -91,6 +91,47 @@ a:hover { color: #ff3d77; }
     background: rgba(255, 92, 138, 0.12);
     color: var(--text);
     transform: translateY(-1px);
+}
+
+.user-menu {
+    position: relative;
+}
+
+.user-menu summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 8px 14px;
+    border-radius: 10px;
+    color: var(--text);
+    font-weight: 600;
+}
+
+.user-menu[open] summary,
+.user-menu summary:hover {
+    background: rgba(255, 92, 138, 0.12);
+}
+
+.user-menu .dropdown {
+    position: absolute;
+    right: 0;
+    top: 110%;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    box-shadow: var(--shadow);
+    min-width: 140px;
+    padding: 8px 0;
+    z-index: 20;
+}
+
+.user-menu .dropdown a {
+    display: block;
+    padding: 8px 14px;
+    color: var(--text);
+}
+
+.user-menu .dropdown a:hover {
+    background: rgba(255, 92, 138, 0.08);
 }
 
 .pill {
@@ -336,22 +377,131 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
     grid-template-columns: 1fr;
 }
 
+/* Admin navbar styling */
+.admin-nav a {
+    color: #2b65f5;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.admin-nav a:hover {
+    background: rgba(43, 101, 245, 0.08);
+    color: #2b65f5;
+    transform: translateY(-1px);
+}
+
+.user-menu summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 8px 14px;
+    border-radius: 10px;
+    color: #2b65f5;
+    font-weight: 700;
+}
+
+.user-menu[open] summary,
+.user-menu summary:hover {
+    background: rgba(43, 101, 245, 0.08);
+}
+
+.nav-icon {
+    width: 18px;
+    height: 18px;
+    stroke: #2b65f5;
+    fill: none;
+    stroke-width: 1.6;
+}
+
+.nav-icon.fill {
+    fill: #2b65f5;
+    stroke: none;
+}
+
+.filters {
+    display: grid;
+    grid-template-columns: 1fr 180px 180px 110px;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.filter-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: var(--shadow);
+}
+
+.filter-field input,
+.filter-field select {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 14px;
+    background: transparent;
+}
+
+.filter-label {
+    font-weight: 600;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.reset-btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background .2s, transform .2s;
+}
+
+.reset-btn:hover { background: rgba(255,92,138,0.08); transform: translateY(-1px); }
+
+/* Admin nav tweak */
+.nav-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.user-menu summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #1f4ed8;
+    font-weight: 700;
+}
 </style>
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
+            <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
         ZozoMart
       </div>
-      <div class="nav-links">
-        <a href="/">Home</a>
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/inventory">Inventory</a>
-        <a href="/addProduct">Add product</a>
-        <a href="/admin/users">Users</a>
-        <a class="pill" href="/logout">Logout</a>
+            <div class="nav-links">
+        <a href="/admin/dashboard">📊 Dashboard</a>
+        <a href="/inventory">📦 Inventory</a>
+        <a href="/admin/users">👥 Users</a>
+        <a href="/admin/orders">📑 Orders</a>
+        <details class="user-menu">
+          <summary>👤 <%= user.username %> ▾</summary>
+          <div class="dropdown">
+            <a href="/logout">Logout</a>
+          </div>
+        </details>
+      </div>
       </div>
     </nav>
 
@@ -360,7 +510,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         <h2>Inventory control</h2>
         <span class="muted">Admin: <%= user.username %></span>
       </div>
-      <p class="muted">Keep products tidy, update quantities, and maintain pricing from a single view.</p>
+      <p class="muted">Keep products tidy, update products, and maintain pricing from a single view.</p>
       <div class="card-actions">
         <a class="pill-action" href="/addProduct">Add a product</a>
         <a class="pill-action" href="/admin/orders">Orders</a>
@@ -372,38 +522,164 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         <h2>Products</h2>
         <span class="muted"><%= products.length %> items</span>
       </div>
+      <% const categories = Array.from(new Set((products || []).map(p => p.category).filter(Boolean))); %>
+      <div class="filters">
+        <div>
+          <div class="filter-label">Search</div>
+          <div class="filter-field">
+            <input id="searchBox" type="text" placeholder="Name, category, description" autocomplete="off">
+          </div>
+        </div>
+        <div>
+          <div class="filter-label">Category</div>
+          <div class="filter-field">
+            <select id="categoryFilter">
+              <option value="">All categories</option>
+              <% categories.forEach(function(c){ %>
+                <option value="<%= c %>"><%= c %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+        <div>
+          <div class="filter-label">Sort</div>
+          <div class="filter-field">
+            <select id="sortSelect">
+              <option value="name-asc">Name A → Z</option>
+              <option value="name-desc">Name Z → A</option>
+              <option value="stock-desc">Stock high → low</option>
+              <option value="price-asc">Price low → high</option>
+              <option value="price-desc">Price high → low</option>
+            </select>
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button class="reset-btn" id="resetFilters" type="button">Reset</button>
+        </div>
+      </div>
       <table>
         <thead>
           <tr>
             <th>Product</th>
             <th>Stock</th>
             <th>Price</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>Dietary</th>
             <th>Edit</th>
             <th>Delete</th>
           </tr>
         </thead>
         <tbody>
           <% products.forEach(function(p){ %>
-            <tr>
+            <tr data-name="<%= (p.productName || '').toLowerCase() %>" data-category="<%= (p.category || '').toLowerCase() %>" data-description="<%= (p.description || '').toLowerCase() %>" data-stock="<%= p.stock %>" data-price="<%= Number(p.price).toFixed(2) %>">
               <td>
                 <div style="display:flex;align-items:center;gap:12px;">
                   <img src="/images/<%= p.image %>" alt="<%= p.productName %>" style="width:54px;height:54px;object-fit:cover;border-radius:10px;border:1px solid var(--border);">
                   <div>
                     <a class="btn-link" href="/product/<%= p.id %>"><%= p.productName %></a>
-                    <div class="muted">ID: <%= p.id %></div>
                   </div>
                 </div>
               </td>
-              <td><%= p.quantity %></td>
-              <td>$<%= Number(p.price).toFixed(2) %></td>
-              <td><a class="btn-link" href="/updateProduct/<%= p.id %>">Edit</a></td>
-              <td><a class="btn-link danger" href="/deleteProduct/<%= p.id %>" onclick="return confirm('Delete this product?')">Delete</a></td>
+              <td>
+                <form class="inline-form" action="/inventory/<%= p.id %>/stock" method="POST" style="display:flex; align-items:center; gap:8px;">
+                  <input type="number" name="stock" min="0" value="<%= p.stock %>" style="width:80px; padding:8px; border:1px solid var(--border); border-radius:10px;">
+                  <button class="pill-action" type="submit">Update</button>
+                </form>
+              </td>
+              <td>$ <%= Number(p.price).toFixed(2) %></td>
+              <td><%= p.category || "—" %></td>
+              <td><%= p.description || "—" %></td>
+              <td><%= p.dietary || "—" %></td>
+              <td><a class="pill-action" href="/editProduct/<%= p.id %>">Edit</a></td>
+              <td><a class="pill-action danger" href="/deleteProduct/<%= p.id %>" onclick="return confirm('Delete this product?')">Delete</a></td>
             </tr>
           <% }) %>
         </tbody>
       </table>
     </div>
   </div>
+  <script>
+    (function(){
+      const rows = Array.from(document.querySelectorAll('tbody tr'));
+      const searchBox = document.getElementById('searchBox');
+      const categoryFilter = document.getElementById('categoryFilter');
+      const sortSelect = document.getElementById('sortSelect');
+      const resetBtn = document.getElementById('resetFilters');
+
+      function applyFilters(){
+        const q = (searchBox.value || '').trim().toLowerCase();
+        const cat = (categoryFilter.value || '').toLowerCase();
+        const sort = sortSelect.value;
+
+        let filtered = rows.filter(row => {
+          const name = row.dataset.name;
+          const category = row.dataset.category;
+          const desc = row.dataset.description;
+
+          // Only match products whose name begins with the query
+          const matchesSearch = q ? name.startsWith(q) : true;
+          const matchesCategory = cat ? category === cat : true;
+          return matchesSearch && matchesCategory;
+        });
+
+        const sorters = {
+          'name-asc': (a,b) => a.dataset.name.localeCompare(b.dataset.name),
+          'name-desc': (a,b) => b.dataset.name.localeCompare(a.dataset.name),
+          'stock-desc': (a,b) => Number(b.dataset.stock) - Number(a.dataset.stock),
+          'price-asc': (a,b) => Number(a.dataset.price) - Number(b.dataset.price),
+          'price-desc': (a,b) => Number(b.dataset.price) - Number(a.dataset.price),
+        };
+
+        if (sorters[sort]) filtered.sort(sorters[sort]);
+
+        const tbody = document.querySelector('tbody');
+        tbody.innerHTML = '';
+        filtered.forEach(row => tbody.appendChild(row));
+      }
+
+      searchBox.addEventListener('input', applyFilters);
+      categoryFilter.addEventListener('change', applyFilters);
+      sortSelect.addEventListener('change', applyFilters);
+      resetBtn.addEventListener('click', () => {
+        searchBox.value = '';
+        categoryFilter.value = '';
+        sortSelect.value = 'name-asc';
+        applyFilters();
+      });
+
+      applyFilters();
+    })();
+  </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

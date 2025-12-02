@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -8,17 +8,23 @@
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
+            <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
         ZozoMart
       </div>
-      <div class="nav-links">
-        <a href="/">Home</a>
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/inventory">Inventory</a>
-        <a href="/admin/users">Users</a>
-        <a class="pill" href="/logout">Logout</a>
+            <div class="nav-links">
+        <a href="/admin/dashboard">📊 Dashboard</a>
+        <a href="/inventory">📦 Inventory</a>
+        <a href="/admin/users">👥 Users</a>
+        <a href="/admin/orders">📑 Orders</a>
+        <details class="user-menu">
+          <summary>👤 <%= user.username %> ▾</summary>
+          <div class="dropdown">
+            <a href="/logout">Logout</a>
+          </div>
+        </details>
+      </div>
       </div>
     </nav>
 
@@ -32,11 +38,20 @@
           <label>Product Name
             <input type="text" name="name" value="<%= product.productName %>" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
           </label>
-          <label>Quantity
-            <input type="number" name="quantity" min="0" step="1" value="<%= product.quantity %>" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
+          <label>Stock
+            <input type="number" name="stock" min="0" step="1" value="<%= product.stock %>" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
           </label>
           <label>Price
             <input type="number" name="price" min="0" step="0.01" value="<%= product.price %>" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
+          </label>
+          <label>Category
+            <input type="text" name="category" value="<%= product.category %>" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
+          </label>
+          <label>Description
+            <textarea name="description" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;" rows="3"><%= product.description %></textarea>
+          </label>
+          <label>Dietary
+            <input type="text" name="dietary" value="<%= product.dietary %>" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
           </label>
           <label>Current Image
             <input type="text" name="currentImage" value="<%= product.image %>" readonly style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px; background:#f9fafb;">
@@ -58,4 +73,27 @@
   </div>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

@@ -104,6 +104,22 @@ app.get('/inventory', checkAuthenticated, checkAdmin, (req, res) => {
           return res.status(500).send('Database error');
       }
       res.render('inventory', { products: results, user: req.session.user });
+  });
+});
+
+// Quick stock update from inventory table
+app.post('/inventory/:id/stock', checkAuthenticated, checkAdmin, (req, res) => {
+    const productId = req.params.id;
+    const newStock = parseInt(req.body.stock, 10);
+    if (Number.isNaN(newStock) || newStock < 0) {
+        return res.status(400).send('Invalid stock value');
+    }
+    connection.query('UPDATE products SET stock = ? WHERE id = ?', [newStock, productId], (error) => {
+        if (error) {
+            console.error('DB error /inventory stock update:', error);
+            return res.status(500).send('Database error');
+        }
+        res.redirect('/inventory');
     });
 });
 
@@ -243,17 +259,16 @@ app.get('/addProduct', checkAuthenticated, checkAdmin, (req, res) => {
 
 app.post('/addProduct', checkAuthenticated, checkAdmin, upload.single('image'),  (req, res) => {
     // Extract product data from the request body
-    const { name, quantity, price} = req.body;
-    let image;
-    if (req.file) {
-        image = req.file.filename; // Save only the filename
-    } else {
-        image = null;
+    const { name, stock, price, category, description, dietary } = req.body;
+    if (!name || !stock || !price || !category || !description || !dietary) {
+        req.flash('error', 'All fields are required');
+        return res.redirect('/addProduct');
     }
+    let image = req.file ? req.file.filename : null;
 
-    const sql = 'INSERT INTO products (productName, quantity, price, image) VALUES (?, ?, ?, ?)';
+    const sql = 'INSERT INTO products (productName, stock, price, image, category, description, dietary) VALUES (?, ?, ?, ?, ?, ?, ?)';
     // Insert the new product into the database
-    connection.query(sql , [name, quantity, price, image], (error, results) => {
+    connection.query(sql , [name, stock, price, image, category, description, dietary], (error, results) => {
         if (error) {
             // Handle any error that occurs during the database operation
             console.error("Error adding product:", error);
@@ -265,37 +280,42 @@ app.post('/addProduct', checkAuthenticated, checkAdmin, upload.single('image'), 
     });
 });
 
+// Legacy update route kept for backward compatibility
 app.get('/updateProduct/:id', checkAuthenticated, checkAdmin, (req, res) => {
     const productId = req.params.id;
     const sql = 'SELECT * FROM products WHERE id = ?';
 
     connection.query(sql , [productId], (error, results) => {
         if (error) {
-        if (error) throw error;
+            console.error('DB error /updateProduct GET:', error);
+            return res.status(500).send('Database error');
+        }
 
-        // Check if any product with the given ID was found
         if (results.length > 0) {
             // Render HTML page with the product data
-            res.render('updateProduct', { product: results[0] });
-        } else {
-            // If no product with the given ID was found, render a 404 page or handle it accordingly
-            res.status(404).send('Product not found');
+            return res.render('updateProduct', { product: results[0] });
         }
-    }})
+
+        return res.status(404).send('Product not found');
+    });
 });
 
 app.post('/updateProduct/:id', checkAuthenticated, checkAdmin, upload.single('image'), (req, res) => {
     const productId = req.params.id;
     // Extract product data from the request body
-    const { name, quantity, price } = req.body;
+    const { name, stock, price, category, description, dietary } = req.body;
+    if (!name || !stock || !price || !category || !description || !dietary) {
+        req.flash('error', 'All fields are required');
+        return res.redirect(`/updateProduct/${productId}`);
+    }
     let image  = req.body.currentImage; //retrieve current image filename
     if (req.file) { //if new image is uploaded
         image = req.file.filename; // set image to be new image filename
     } 
 
-    const sql = 'UPDATE products SET productName = ? , quantity = ?, price = ?, image =? WHERE id = ?';
+    const sql = 'UPDATE products SET productName = ? , stock = ?, price = ?, image = ?, category = ?, description = ?, dietary = ? WHERE id = ?';
     // Insert the new product into the database
-    connection.query(sql, [name, quantity, price, image, productId], (error, results) => {
+    connection.query(sql, [name, stock, price, image, category, description, dietary, productId], (error, results) => {
         if (error) {
             // Handle any error that occurs during the database operation
             console.error("Error updating product:", error);
@@ -304,6 +324,42 @@ app.post('/updateProduct/:id', checkAuthenticated, checkAdmin, upload.single('im
             // Send a success response
             res.redirect('/inventory');
         }
+    });
+});
+
+// Preferred edit routes (mirror updateProduct)
+app.get('/editProduct/:id', checkAuthenticated, checkAdmin, (req, res) => {
+    const productId = req.params.id;
+    connection.query('SELECT * FROM products WHERE id = ?', [productId], (error, results) => {
+        if (error) {
+            console.error('DB error /editProduct GET:', error);
+            return res.status(500).send('Database error');
+        }
+        if (results.length > 0) {
+            return res.render('editProduct', { product: results[0], user: req.session.user });
+        }
+        return res.status(404).send('Product not found');
+    });
+});
+
+app.post('/editProduct/:id', checkAuthenticated, checkAdmin, upload.single('image'), (req, res) => {
+    const productId = req.params.id;
+    const { name, stock, price, category, description, dietary } = req.body;
+    if (!name || !stock || !price || !category || !description || !dietary) {
+        req.flash('error', 'All fields are required');
+        return res.redirect(`/editProduct/${productId}`);
+    }
+    let image = req.body.currentImage;
+    if (req.file) {
+        image = req.file.filename;
+    }
+    const sql = 'UPDATE products SET productName = ? , stock = ?, price = ?, image = ?, category = ?, description = ?, dietary = ? WHERE id = ?';
+    connection.query(sql, [name, stock, price, image, category, description, dietary, productId], (error) => {
+        if (error) {
+            console.error('DB error /editProduct POST:', error);
+            return res.status(500).send('Error updating product');
+        }
+        res.redirect('/inventory');
     });
 });
 

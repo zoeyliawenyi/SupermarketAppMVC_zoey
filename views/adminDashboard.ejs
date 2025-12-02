@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -336,35 +336,72 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
     grid-template-columns: 1fr;
 }
 
+/* Admin navbar styling */
+.admin-nav a {
+    color: #2b65f5;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.admin-nav a:hover {
+    background: rgba(43, 101, 245, 0.08);
+    color: #2b65f5;
+    transform: translateY(-1px);
+}
+
+.user-menu summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 8px 14px;
+    border-radius: 10px;
+    color: #2b65f5;
+    font-weight: 700;
+}
+
+.user-menu[open] summary,
+.user-menu summary:hover {
+    background: rgba(43, 101, 245, 0.08);
+}
+
+/* Admin nav tweak */
+.nav-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.user-menu summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #1f4ed8;
+    font-weight: 700;
+}
 </style>
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
+            <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
         ZozoMart
       </div>
       <div class="nav-links">
-        <a href="/">Home</a>
-        <a href="/#products">Browse</a>
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/admin/users">Users</a>
-        <a href="/admin/orders">Orders</a>
-        <a href="/inventory">Inventory</a>
-        <a class="pill" href="/logout">Logout</a>
+        <a href="/admin/dashboard">📊 Dashboard</a>
+        <a href="/inventory">📦 Inventory</a>
+        <a href="/admin/users">👥 Users</a>
+        <a href="/admin/orders">📑 Orders</a>
+        <details class="user-menu">
+          <summary>👤 <%= user.username %> ▾</summary>
+          <div class="dropdown">
+            <a href="/logout">Logout</a>
+          </div>
+        </details>
       </div>
-    </nav>
-
-    <div class="hero-card" style="margin-top:20px;">
-      <div class="section-head">
-        <h2>Admin dashboard</h2>
-        <span class="muted">Welcome, <%= user ? user.username : 'Admin' %></span>
-      </div>
-      <div class="stat-grid">
-        <div class="stat">
-          <label>Total Products</label>
-          <strong><%= stats.products %></strong>
         </div>
         <div class="stat">
           <label>Total Users</label>
@@ -384,4 +421,27 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   </div>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

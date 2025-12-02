@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -371,9 +371,9 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         <% products.forEach(function(p){ %>
           <form class="card" action="/add-to-cart/<%= p.id %>" method="POST">
             <img src="/images/<%= p.image %>" alt="<%= p.productName %>">
-            <div class="pill-badge">In stock: <%= p.quantity %></div>
+            <div class="pill-badge">In stock: <%= p.stock %></div>
             <h3><%= p.productName %></h3>
-            <div class="price">$<%= Number(p.price).toFixed(2) %></div>
+            <div class="price">$ <%= Number(p.price).toFixed(2) %></div>
             <div class="card-actions">
               <select class="select" name="quantity">
                 <% for (let q = 1; q <= Math.min(5, p.quantity || 5); q++) { %>
@@ -389,4 +389,9 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   </div>
 </body>
 </html>
+
+
+
+
+
 
