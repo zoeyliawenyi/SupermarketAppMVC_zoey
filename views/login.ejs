@@ -376,8 +376,9 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
           <input type="email" name="email" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
         </label>
         <label>Password
-          <input type="password" name="password" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
+          <input type="password" name="password" required minlength="6" pattern=".{6,}" title="At least 6 characters" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
         </label>
+        <a href="/forgot-password" class="muted" style="font-weight:600;">Forgot your password?</a>
         <div class="cta-row">
           <button class="cta" type="submit">Login</button>
           <a class="cta secondary" href="/register" style="display:inline-block; text-align:center;">Create account</a>
@@ -385,6 +386,22 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       </form>
     </div>
   </div>
+  <script>
+    const loginForm = document.querySelector('form[action=\"/login\"]');
+    loginForm.addEventListener('submit', (e) => {
+      const email = loginForm.email.value.trim();
+      const password = loginForm.password.value.trim();
+      if (!email || !password) {
+        e.preventDefault();
+        alert('Please fill in all fields.');
+        return;
+      }
+      if (password.length < 6) {
+        e.preventDefault();
+        alert('Password should be at least 6 characters.');
+      }
+    });
+  </script>
 </body>
 </html>
 

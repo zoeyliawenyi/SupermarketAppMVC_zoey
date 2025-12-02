@@ -370,7 +370,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         <div class="pill-badge" style="background: rgba(231, 76, 60, 0.12); color: #d14343;"> <%= messages.join(', ') %> </div>
       <% } %>
 
-      <form action="/register" method="POST" style="margin-top:16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
+      <form id="registerForm" action="/register" method="POST" style="margin-top:16px; display:grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap:12px;">
         <label>Username
           <input type="text" name="username" required value="<%= formData && formData.username ? formData.username : '' %>" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
         </label>
@@ -378,19 +378,21 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
           <input type="email" name="email" required value="<%= formData && formData.email ? formData.email : '' %>" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
         </label>
         <label>Password
-          <input type="password" name="password" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
+          <input type="password" name="password" required minlength="6" pattern=".{6,}" title="At least 6 characters" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
+          <small class="muted">Minimum 6 characters.</small>
         </label>
         <label>Address
           <input type="text" name="address" required value="<%= formData && formData.address ? formData.address : '' %>" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
         </label>
         <label>Contact Number
-          <input type="text" name="contact" required value="<%= formData && formData.contact ? formData.contact : '' %>" style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
-        </label>
-        <label>Role
-          <select name="role" required style="width:100%; padding:12px; border:1px solid var(--border); border-radius:12px; margin-top:6px;">
-            <option value="user" <%= formData && formData.role === 'user' ? 'selected' : '' %>>User</option>
-            <option value="admin" <%= formData && formData.role === 'admin' ? 'selected' : '' %>>Admin</option>
-          </select>
+          <div style="display:flex; gap:8px; margin-top:6px;">
+            <select name="countryCode" required style="padding:12px; border:1px solid var(--border); border-radius:12px;">
+              <option value="+65" <%= formData && formData.countryCode === '+65' ? 'selected' : '' %>>+65</option>
+              <option value="+60" <%= formData && formData.countryCode === '+60' ? 'selected' : '' %>>+60</option>
+            </select>
+            <input type="text" name="contactNumber" pattern="[0-9]{8}" maxlength="8" minlength="8" title="Enter exactly 8 digits" required value="<%= formData && formData.contactNumber ? formData.contactNumber : '' %>" style="flex:1; padding:12px; border:1px solid var(--border); border-radius:12px;">
+          </div>
+          <small class="muted">Enter 8 digits.</small>
         </label>
         <div style="grid-column: 1 / -1;">
           <button class="cta" type="submit">Register</button>
@@ -398,6 +400,23 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       </form>
     </div>
   </div>
+  <script>
+    document.getElementById('registerForm').addEventListener('submit', function (e) {
+      const form = e.target;
+      const password = form.password.value.trim();
+      const contactNumber = form.contactNumber.value.replace(/\D/g, '');
+      if (password.length < 6) {
+        e.preventDefault();
+        alert('Password should be at least 6 characters.');
+        return;
+      }
+      if (contactNumber.length !== 8) {
+        e.preventDefault();
+        alert('Contact number must be exactly 8 digits.');
+        return;
+      }
+    });
+  </script>
 </body>
 </html>
 

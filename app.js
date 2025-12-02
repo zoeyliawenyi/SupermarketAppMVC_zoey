@@ -64,14 +64,23 @@ const checkAdmin = (req, res, next) => {
 
 // Middleware for form validation
 const validateRegistration = (req, res, next) => {
-    const { username, email, password, address, contact, role } = req.body;
+    const { username, email, password, address, countryCode, contactNumber } = req.body;
 
-    if (!username || !email || !password || !address || !contact || !role) {
-        return res.status(400).send('All fields are required.');
+    if (!username || !email || !password || !address || !countryCode || !contactNumber) {
+        req.flash('error', 'All fields are required.');
+        req.flash('formData', req.body);
+        return res.redirect('/register');
     }
     
     if (password.length < 6) {
         req.flash('error', 'Password should be at least 6 or more characters long');
+        req.flash('formData', req.body);
+        return res.redirect('/register');
+    }
+
+    const digits = (contactNumber || '').replace(/\D/g, '');
+    if (digits.length !== 8) {
+        req.flash('error', 'Contact number must be 8 digits.');
         req.flash('formData', req.body);
         return res.redirect('/register');
     }
@@ -95,6 +104,57 @@ app.get('/admin/users', checkAuthenticated, checkAdmin, adminController.listUser
 app.post('/admin/users/:id/role', checkAuthenticated, checkAdmin, adminController.changeUserRole);
 app.post('/admin/users/:id/delete', checkAuthenticated, checkAdmin, adminController.removeUser);
 app.get('/admin/orders', checkAuthenticated, checkAdmin, adminController.listOrders);
+
+// Forgot password
+app.get('/forgot-password', (req, res) => {
+    res.render('forgotPassword', {
+        errors: req.flash('error'),
+        messages: req.flash('success'),
+        user: req.session.user
+    });
+});
+app.post('/forgot-password', (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        req.flash('error', 'Email is required');
+        return res.redirect('/forgot-password');
+    }
+    res.render('resetPassword', {
+        email,
+        errors: [],
+        messages: [],
+        user: req.session.user
+    });
+});
+
+app.post('/reset-password', (req, res) => {
+    const { email, password, confirmPassword } = req.body;
+    if (!email || !password || !confirmPassword) {
+        req.flash('error', 'All fields are required');
+        return res.redirect('/forgot-password');
+    }
+    if (password !== confirmPassword) {
+        req.flash('error', 'Passwords do not match');
+        return res.redirect('/forgot-password');
+    }
+    if (password.length < 6) {
+        req.flash('error', 'Password must be at least 6 characters');
+        return res.redirect('/forgot-password');
+    }
+    connection.query('UPDATE users SET password = SHA1(?) WHERE email = ?', [password, email], (error, result) => {
+        if (error) {
+            console.error('DB error /reset-password:', error);
+            req.flash('error', 'Database error');
+            return res.redirect('/forgot-password');
+        }
+        if (result.affectedRows === 0) {
+            req.flash('error', 'Email not found');
+            return res.redirect('/forgot-password');
+        }
+        req.flash('success', 'Password updated. Please log in.');
+        res.redirect('/login');
+    });
+});
 
 app.get('/inventory', checkAuthenticated, checkAdmin, (req, res) => {
     // Fetch data from MySQL
@@ -129,18 +189,41 @@ app.get('/register', (req, res) => {
 
 app.post('/register', validateRegistration, (req, res) => {
 
-    const { username, email, password, address, contact, role } = req.body;
+    const { username, email, password, address, countryCode, contactNumber } = req.body;
+    const role = 'user';
+    const contact = (contactNumber || '').replace(/\D/g, '');
 
-    const sql = 'INSERT INTO users (username, email, password, address, contact, role) VALUES (?, ?, SHA1(?), ?, ?, ?)';
-    connection.query(sql, [username, email, password, address, contact, role], (err, result) => {
-        if (err) {
-            console.error('DB error /register:', err);
+    // Check for duplicate username or email
+    connection.query('SELECT username, email FROM users WHERE username = ? OR email = ? LIMIT 1', [username, email], (checkErr, rows) => {
+        if (checkErr) {
+            console.error('DB error /register check:', checkErr);
             req.flash('error', 'Registration failed. Try again.');
             return res.redirect('/register');
         }
-        console.log(result);
-        req.flash('success', 'Registration successful! Please log in.');
-        res.redirect('/login');
+        if (rows && rows.length > 0) {
+            const conflict = rows[0];
+            if (conflict.username === username) {
+                req.flash('error', 'Username exists');
+            } else if (conflict.email === email) {
+                req.flash('error', 'Email has been registered');
+            } else {
+                req.flash('error', 'Account already exists.');
+            }
+            req.flash('formData', req.body);
+            return res.redirect('/register');
+        }
+
+        const sql = 'INSERT INTO users (username, email, password, address, contact, role) VALUES (?, ?, SHA1(?), ?, ?, ?)';
+        connection.query(sql, [username, email, password, address, contact, role], (err, result) => {
+            if (err) {
+                console.error('DB error /register:', err);
+                req.flash('error', 'Registration failed. Try again.');
+                return res.redirect('/register');
+            }
+            console.log(result);
+            req.flash('success', 'Registration successful! Please log in.');
+            res.redirect('/login');
+        });
     });
 });
 
