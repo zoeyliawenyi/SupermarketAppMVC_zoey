@@ -377,6 +377,14 @@ app.get('/checkout', checkAuthenticated, (req, res) => {
         option: 'pickup',
         payment: 'paynow'
     };
+    // apply user defaults if missing
+    if (!shipping.contact && req.session.user && req.session.user.contact) {
+        shipping.contact = req.session.user.contact;
+    }
+    if (!shipping.address && req.session.user && req.session.user.address) {
+        shipping.address = req.session.user.address;
+    }
+    const cardDraft = req.session.cardDraft || {};
     const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -385,6 +393,7 @@ app.get('/checkout', checkAuthenticated, (req, res) => {
         cart,
         user: req.session.user,
         shipping,
+        cardDraft,
         shippingCost,
         subtotal,
         total,
@@ -421,17 +430,46 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
         return res.redirect('/cart');
     }
     const shipping = req.session.checkoutShipping || { option: 'pickup', payment: 'paynow', contact: '', address: '' };
+    // fill defaults if absent
+    if (!shipping.contact && req.session.user && req.session.user.contact) {
+        shipping.contact = req.session.user.contact;
+    }
+    if (!shipping.address && req.session.user && req.session.user.address) {
+        shipping.address = req.session.user.address;
+    }
+    // persist latest shipping snapshot so it is available if user returns after a failure
+    req.session.checkoutShipping = shipping;
     const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     const total = subtotal + shippingCost;
 
+    const paymentMethod = req.body.paymentMethod || shipping.payment || 'paynow';
+    const cardYear = req.body.cardYear;
+    if (paymentMethod === 'card') {
+        req.session.cardDraft = {
+            cardNumber: req.body.cardNumber || '',
+            cardCvv: req.body.cardCvv || '',
+            cardName: req.body.cardName || '',
+            cardBilling: req.body.cardBilling || '',
+            cardYear: req.body.cardYear || '',
+            cardMonth: req.body.cardMonth || ''
+        };
+    } else {
+        req.session.cardDraft = null;
+    }
+    let status = 'payment successful';
+    const yearNum = Number(cardYear);
+    if (paymentMethod === 'card' && yearNum && yearNum <= 2025) {
+        status = 'payment failed';
+    }
+
     const orderPayload = {
         userId: req.session.user.id,
         total,
-        paymentMethod: shipping.payment,
+        paymentMethod,
         deliveryType: shipping.option,
         address: shipping.address,
-        status: 'placed'
+        status
     };
 
     Order.create(orderPayload, (err, orderId) => {
@@ -449,9 +487,16 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
             total,
             date: new Date().toISOString()
         };
-        req.session.cart = [];
-        res.locals.cartCount = 0;
-        res.redirect(`/orders/success?id=${orderId}`);
+        if (status === 'payment failed') {
+            // keep cart so user can retry from checkout
+            res.locals.cartCount = req.session.cart.reduce((sum, i) => sum + (i.quantity || 0), 0);
+            res.redirect(`/orders/fail?id=${orderId}`);
+        } else {
+            req.session.cardDraft = null;
+            req.session.cart = [];
+            res.locals.cartCount = 0;
+            res.redirect(`/orders/success?id=${orderId}`);
+        }
     });
 });
 
@@ -461,7 +506,12 @@ app.get('/orders', checkAuthenticated, (req, res) => {
 
 app.get('/orders/success', checkAuthenticated, (req, res) => {
     const id = req.query.id || (req.session.lastOrder && req.session.lastOrder.id);
-    res.render('orderSuccess', { orderId: id || '—' });
+    res.render('orderSuccess', { orderId: id || '' });
+});
+
+app.get('/orders/fail', checkAuthenticated, (req, res) => {
+    const id = req.query.id || (req.session.lastOrder && req.session.lastOrder.id);
+    res.render('orderFail', { orderId: id || '' });
 });
 
 app.get('/logout', (req, res) => {
@@ -611,3 +661,5 @@ app.get('/deleteProduct/:id', checkAuthenticated, checkAdmin, (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+

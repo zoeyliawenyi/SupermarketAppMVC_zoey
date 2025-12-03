@@ -228,7 +228,7 @@ a:hover { color: #ff3d77; }
             <div id="cardFields" class="<%= shipping.payment === 'card' ? '' : 'hidden' %> card-form" style="margin-top:10px;">
               <div>
                 <label style="font-weight:600; margin-bottom:4px; display:block;">Card number</label>
-                <input class="input" type="text" id="cardNumber" placeholder="16 digits" maxlength="16" pattern="[0-9]{16}" title="Card number must be 16 digits" autocomplete="off" inputmode="numeric">
+                <input class="input" type="text" id="cardNumber" placeholder="16 digits" maxlength="16" pattern="[0-9]{16}" title="Card number must be 16 digits" autocomplete="off" inputmode="numeric" value="<%= (cardDraft.cardNumber || '') %>">
               </div>
               <div class="card-form-row">
                 <div>
@@ -236,28 +236,28 @@ a:hover { color: #ff3d77; }
                   <div style="display:flex; gap:8px;">
                     <select class="input" id="cardExpMonth" autocomplete="off">
                       <% for(let m=1;m<=12;m++){ const mm = m.toString().padStart(2,'0'); %>
-                        <option value="<%= mm %>"><%= mm %></option>
+                        <option value="<%= mm %>" <%= (cardDraft.cardMonth === mm) ? 'selected' : '' %>><%= mm %></option>
                       <% } %>
                     </select>
                     <select class="input" id="cardExpYear" autocomplete="off">
                       <% const yearNow = new Date().getFullYear(); for(let y=0;y<10;y++){ const yr = yearNow + y; %>
-                        <option value="<%= yr %>"><%= yr %></option>
+                        <option value="<%= yr %>" <%= (String(cardDraft.cardYear) === String(yr)) ? 'selected' : '' %>><%= yr %></option>
                       <% } %>
                     </select>
                   </div>
                 </div>
                 <div>
                   <label style="font-weight:600; margin-bottom:4px; display:block;">CVV</label>
-                  <input class="input" type="text" id="cardCvv" placeholder="3 digits" maxlength="3" pattern="[0-9]{3}" title="CVV must be 3 digits" autocomplete="off" inputmode="numeric">
+                  <input class="input" type="text" id="cardCvv" placeholder="3 digits" maxlength="3" pattern="[0-9]{3}" title="CVV must be 3 digits" autocomplete="off" inputmode="numeric" value="<%= (cardDraft.cardCvv || '') %>">
                 </div>
               </div>
               <div>
                 <label style="font-weight:600; margin-bottom:4px; display:block;">Name on card</label>
-                <input class="input" type="text" id="cardName" placeholder="As on card" autocomplete="off">
+                <input class="input" type="text" id="cardName" placeholder="As on card" autocomplete="off" value="<%= (cardDraft.cardName || '') %>">
               </div>
               <div>
                 <label style="font-weight:600; margin-bottom:4px; display:block;">Billing address</label>
-                <textarea class="input" id="cardBilling" autocomplete="off"><%= shipping.address || '' %></textarea>
+                <textarea class="input" id="cardBilling" autocomplete="off"><%= cardDraft.cardBilling || shipping.address || '' %></textarea>
               </div>
             </div>
           </div>
@@ -396,6 +396,21 @@ a:hover { color: #ff3d77; }
 
       recalcTotal();
 
+      function submitOrder(payload) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/place-order';
+        Object.entries(payload || {}).forEach(([k,v]) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = k;
+          input.value = v;
+          form.appendChild(input);
+        });
+        document.body.appendChild(form);
+        form.submit();
+      }
+
       document.getElementById('placeOrderBtn').addEventListener('click', () => {
         const payMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'paynow';
         if (payMethod === 'paynow') {
@@ -410,18 +425,30 @@ a:hover { color: #ff3d77; }
           }, 1000);
           setTimeout(() => {
             clearInterval(interval);
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = '/place-order';
-            document.body.appendChild(form);
-            form.submit();
+            submitOrder({ paymentMethod: 'paynow' });
           }, 8000);
         } else {
-          const form = document.createElement('form');
-          form.method = 'POST';
-          form.action = '/place-order';
-          document.body.appendChild(form);
-          form.submit();
+          const cardNumber = (document.getElementById('cardNumber').value || '').replace(/\\D/g,'');
+          const cardCvv = (document.getElementById('cardCvv').value || '').replace(/\\D/g,'');
+          const cardYear = document.getElementById('cardExpYear').value;
+          const cardMonth = document.getElementById('cardExpMonth').value;
+          if (cardNumber.length !== 16) {
+            alert('Card number must be 16 digits');
+            return;
+          }
+          if (cardCvv.length !== 3) {
+            alert('CVV must be 3 digits');
+            return;
+          }
+          submitOrder({
+            paymentMethod: 'card',
+            cardYear,
+            cardMonth,
+            cardNumber,
+            cardCvv,
+            cardName: document.getElementById('cardName').value || '',
+            cardBilling: document.getElementById('cardBilling').value || ''
+          });
         }
       });
     })();
