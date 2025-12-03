@@ -289,7 +289,35 @@ app.get('/favourites', checkAuthenticated, (req, res) => {
 });
 
 app.get('/account', checkAuthenticated, (req, res) => {
-    res.render('account', { user: req.session.user });
+    res.render('account', { user: req.session.user, messages: req.flash('success'), errors: req.flash('error') });
+});
+
+app.post('/account', checkAuthenticated, (req, res) => {
+    const { username, address, contact } = req.body;
+    if (!username || !address || !contact) {
+        req.flash('error', 'All fields are required.');
+        return res.redirect('/account');
+    }
+    const digits = (contact || '').replace(/\D/g, '');
+    if (digits.length !== 8) {
+        req.flash('error', 'Contact number must be 8 digits.');
+        return res.redirect('/account');
+    }
+    const userId = req.session.user.id;
+    const sql = 'UPDATE users SET username = ?, address = ?, contact = ? WHERE id = ?';
+    connection.query(sql, [username, address, digits, userId], (err) => {
+        if (err) {
+            console.error('DB error /account update:', err);
+            req.flash('error', 'Could not update account.');
+            return res.redirect('/account');
+        }
+        // update session user
+        req.session.user.username = username;
+        req.session.user.address = address;
+        req.session.user.contact = digits;
+        req.flash('success', 'Account updated.');
+        res.redirect('/account');
+    });
 });
 
 app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
@@ -495,6 +523,22 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
                 console.error('DB error inserting order_items:', itemErr);
             }
         });
+        const adjustStock = (done) => {
+            if (status === 'payment failed') return done();
+            let pending = cart.length;
+            if (!pending) return done();
+            cart.forEach(it => {
+                const qty = Number(it.quantity) || 0;
+                if (!qty) {
+                    if (--pending === 0) done();
+                    return;
+                }
+                connection.query('UPDATE products SET stock = GREATEST(stock - ?, 0) WHERE id = ?', [qty, it.productId], (updErr) => {
+                    if (updErr) console.error('DB error decrementing stock:', updErr);
+                    if (--pending === 0) done();
+                });
+            });
+        };
         req.session.lastOrder = {
             id: orderId,
             items: cart,
@@ -514,15 +558,19 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
         req.session.lastOrder = req.session.lastOrder || {};
         req.session.lastOrder.items = cart;
         req.session.lastOrder.totalQuantity = totalQuantity;
+        const goSuccess = () => {
+            req.session.cardDraft = null;
+            req.session.cart = [];
+            res.locals.cartCount = 0;
+            res.redirect(`/orders/success?id=${orderId}`);
+        };
+
         if (status === 'payment failed') {
             // keep cart so user can retry from checkout
             res.locals.cartCount = req.session.cart.reduce((sum, i) => sum + (i.quantity || 0), 0);
             res.redirect(`/orders/fail?id=${orderId}`);
         } else {
-            req.session.cardDraft = null;
-            req.session.cart = [];
-            res.locals.cartCount = 0;
-            res.redirect(`/orders/success?id=${orderId}`);
+            adjustStock(goSuccess);
         }
     });
 });

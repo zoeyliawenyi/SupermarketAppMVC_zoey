@@ -546,7 +546,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       </div>
       <div class="grid">
         <% products.forEach(function(p){ %>
-          <% const maxQty = Math.min(5, p.quantity || 5); %>
+          <% const maxQty = Math.min(5, p.stock || p.quantity || 5); %>
           <form class="card" action="/add-to-cart/<%= p.id %>" method="POST" data-name="<%= (p.productName || '').toLowerCase() %>" data-category="<%= (p.category || '').toLowerCase() %>" data-dietary="<%= (p.dietary || '').toLowerCase() %>" data-price="<%= Number(p.price).toFixed(2) %>">
             <a href="/product/<%= p.id %>" style="text-decoration:none; color:inherit;">
               <img src="/images/<%= p.image %>" alt="<%= p.productName %>">
@@ -565,6 +565,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
             <% if (p.category) { %>
               <div class="muted">Category: <strong><%= p.category %></strong></div>
             <% } %>
+            <div class="muted">Available: <strong><%= p.stock != null ? p.stock : (p.quantity || 0) %></strong></div>
             <div class="price">$ <%= Number(p.price).toFixed(2) %></div>
             <div class="card-actions buy-row">
               <div class="qty-control" data-max="<%= maxQty %>">
