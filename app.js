@@ -282,6 +282,14 @@ app.get('/shopping', checkAuthenticated, (req, res) => {
     });
 });
 
+app.get('/favourites', checkAuthenticated, (req, res) => {
+    res.render('favourites', { user: req.session.user });
+});
+
+app.get('/account', checkAuthenticated, (req, res) => {
+    res.render('account', { user: req.session.user });
+});
+
 app.post('/add-to-cart/:id', checkAuthenticated, (req, res) => {
     const productId = parseInt(req.params.id, 10);
     const quantity = parseInt(req.body.quantity, 10) || 1;

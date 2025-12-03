@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -98,6 +98,12 @@ a:hover { color: #ff3d77; }
     color: #ffffff !important;
     box-shadow: 0 10px 30px rgba(255, 92, 138, 0.35);
 }
+.user-menu { position: relative; }
+.user-menu summary { list-style: none; cursor: pointer; padding: 8px 12px; border-radius: 10px; }
+.user-menu[open] summary, .user-menu summary:hover { background: rgba(255, 92, 138, 0.12); }
+.user-menu .dropdown { position: absolute; right: 0; top: 110%; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); min-width: 150px; padding: 8px 0; z-index: 20; }
+.user-menu .dropdown a { display: block; padding: 8px 12px; color: var(--text); text-decoration: none; }
+.user-menu .dropdown a:hover { background: rgba(255, 92, 138, 0.12); }
 
 .hero {
     display: grid;
@@ -409,13 +415,18 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         <span class="dot"></span>
         ZozoMart
       </div>
-      <div class="nav-links">
-        <a href="/">Home</a>
-        <a href="/#products">Browse</a>
-        <a href="/shopping">Shop</a>
+            <div class="nav-links">
+        <a href="/shopping">Home</a>
+        <a href="/favourites">Favourites</a>
         <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-        <% if (user && user.role === 'admin') { %><a href="/inventory">Inventory</a><% } %>
-        <a class="pill" href="/logout">Logout</a>
+        <details class="user-menu">
+          <summary>👤 <%= user.username %> ▾</summary>
+          <div class="dropdown">
+            <a href="/account">My Account</a>
+            <a href="/orders">My Orders</a>
+            <a href="/logout">Logout</a>
+          </div>
+        </details>
       </div>
     </nav>
 
@@ -576,5 +587,6 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   <% } %>
 </body>
 </html>
+
 
 

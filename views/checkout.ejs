@@ -57,6 +57,12 @@ a:hover { color: #ff3d77; }
 .nav-links a { padding: 8px 14px; border-radius: 10px; color: var(--text); font-weight: 500; transition: background 0.2s, color 0.2s, transform 0.2s; }
 .nav-links a:hover { background: rgba(255, 92, 138, 0.12); color: var(--text); transform: translateY(-1px); }
 .pill { background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #ffffff !important; box-shadow: 0 10px 30px rgba(255, 92, 138, 0.35); }
+.user-menu { position: relative; }
+.user-menu summary { list-style: none; cursor: pointer; padding: 8px 12px; border-radius: 10px; }
+.user-menu[open] summary, .user-menu summary:hover { background: rgba(255, 92, 138, 0.12); }
+.user-menu .dropdown { position: absolute; right: 0; top: 110%; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); min-width: 150px; padding: 8px 0; z-index: 20; }
+.user-menu .dropdown a { display: block; padding: 8px 12px; color: var(--text); text-decoration: none; }
+.user-menu .dropdown a:hover { background: rgba(255, 92, 138, 0.12); }
 
 .cart-link { position: relative; display: inline-flex; align-items: center; gap: 6px; }
 .cart-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 2px 6px; border-radius: 999px; background: #16804a; color: #fff; font-size: 12px; font-weight: 700; }
@@ -174,10 +180,17 @@ a:hover { color: #ff3d77; }
         ZozoMart
       </div>
       <div class="nav-links">
-        <a href="/">Home</a>
-        <a href="/shopping">Shop</a>
+        <a href="/shopping">Home</a>
+        <a href="/favourites">Favourites</a>
         <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-        <a class="pill" href="/logout">Logout</a>
+        <details class="user-menu">
+          <summary>👤 <%= user.username %> ▾</summary>
+          <div class="dropdown">
+            <a href="/account">My Account</a>
+            <a href="/orders">My Orders</a>
+            <a href="/logout">Logout</a>
+          </div>
+        </details>
       </div>
     </nav>
 
