@@ -22,8 +22,13 @@ const Order = {
   },
 
   findAll: (cb) => {
-    const sql = 'SELECT * FROM orders ORDER BY createdAt DESC';
+    const sql = 'SELECT o.*, u.username FROM orders o LEFT JOIN users u ON o.userId = u.id ORDER BY o.createdAt DESC';
     connection.query(sql, cb);
+  },
+
+  updateStatus: (id, status, cb) => {
+    const sql = 'UPDATE orders SET status = ? WHERE id = ?';
+    connection.query(sql, [status, id], cb);
   }
 };
 

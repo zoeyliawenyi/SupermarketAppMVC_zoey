@@ -21,3 +21,16 @@ exports.listAll = (req, res) => {
     res.render('adminOrders', { orders: results || [], user: req.session.user });
   });
 };
+
+exports.updateStatus = (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  const { status } = req.body;
+  if (!status) return res.status(400).json({ success: false });
+  Order.updateStatus(id, status, (err) => {
+    if (err) {
+      console.error('DB error /admin/orders status:', err);
+      return res.status(500).json({ success: false });
+    }
+    res.json({ success: true });
+  });
+};

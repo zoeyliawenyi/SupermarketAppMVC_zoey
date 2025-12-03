@@ -1,367 +1,67 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ZozoMart | Orders</title>
+  <title>ZozoMart | Order Management</title>
   <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-
 :root {
     --bg: #ffffff;
-    --panel: #f7f8fc;
     --card: #ffffff;
-    --accent: #ff5c8a;
-    --accent-2: #ff8fb1;
-    --text: #1f2430;
+    --text: #111827;
     --muted: #6b7280;
     --border: #e5e7eb;
     --shadow: 0 12px 30px rgba(17, 24, 39, 0.08);
-    --radius: 16px;
+    --radius: 14px;
+    --pink: #f8cde5;
+    --blue: #c8d9ff;
+    --purple: #d6c8ff;
+    --mint: #c8f0df;
 }
-
 * { box-sizing: border-box; }
-
-body {
-    margin: 0;
-    font-family: 'Poppins', sans-serif;
-    background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff);
-    color: var(--text);
-    min-height: 100vh;
-}
-
-a { color: var(--accent); text-decoration: none; }
-a:hover { color: #ff3d77; }
-
-.shell {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 24px;
-}
-
-.nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #ffffff;
-    backdrop-filter: blur(8px);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 12px 18px;
-    box-shadow: var(--shadow);
-    position: sticky;
-    top: 18px;
-    z-index: 10;
-}
-
-.brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
-    font-size: 18px;
-    letter-spacing: .5px;
-    color: var(--text);
-}
-
-.brand .dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    box-shadow: 0 0 10px rgba(255, 92, 138, 0.6);
-}
-
-.nav-links {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    flex-wrap: wrap;
-}
-
-.nav-links a {
-    padding: 8px 14px;
-    border-radius: 10px;
-    color: var(--text);
-    font-weight: 500;
-    transition: background 0.2s, color 0.2s, transform 0.2s;
-}
-
-.nav-links a:hover {
-    background: rgba(255, 92, 138, 0.12);
-    color: var(--text);
-    transform: translateY(-1px);
-}
-
-.pill {
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    color: #ffffff !important;
-    box-shadow: 0 10px 30px rgba(255, 92, 138, 0.35);
-}
-
-.hero {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 28px;
-    margin: 28px 0;
-    align-items: center;
-}
-
-.hero-card {
-    background: #ffffff;
-    border: 1px solid var(--border);
-    border-radius: calc(var(--radius) + 6px);
-    padding: 28px;
-    box-shadow: var(--shadow);
-}
-
-.eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
-    background: rgba(255, 92, 138, 0.14);
-    border-radius: 999px;
-    color: var(--text);
-    font-size: 13px;
-    letter-spacing: .4px;
-}
-
-.hero h1 {
-    margin: 12px 0 10px;
-    font-size: 36px;
-    line-height: 1.2;
-}
-
-.hero p {
-    color: var(--muted);
-    margin: 0 0 18px;
-}
-
-.cta-row {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    margin-top: 12px;
-}
-
-.cta {
-    padding: 12px 16px;
-    border: none;
-    border-radius: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-    color: #ffffff;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
-    box-shadow: 0 10px 30px rgba(255, 92, 138, 0.35);
-}
-
-.cta.secondary {
-    background: transparent;
-    color: var(--text);
-    border: 1px solid var(--border);
-    box-shadow: none;
-}
-
-.cta:hover { transform: translateY(-1px); }
-
-.stat-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-    margin-top: 10px;
-}
-
-.stat {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 14px 16px;
-    box-shadow: var(--shadow);
-}
-
-.stat label { color: var(--muted); font-size: 13px; }
-.stat strong { display: block; margin-top: 8px; font-size: 22px; }
-
-.section-head {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: 14px;
-}
-
-.section-head h2 {
-    margin: 0;
-    font-size: 22px;
-}
-
-.products {
-    margin-top: 18px;
-}
-
-.grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
-}
-
-.card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    box-shadow: var(--shadow);
-    transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
-}
-
-.card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(255, 92, 138, 0.4);
-    box-shadow: 0 16px 36px rgba(255, 92, 138, 0.15);
-}
-
-.card img {
-    width: 100%;
-    height: 160px;
-    object-fit: cover;
-    border-radius: 12px;
-    background: #f3f4f6;
-}
-
-.card h3 {
-    margin: 0;
-    font-size: 17px;
-}
-
-.price {
-    color: var(--accent);
-    font-weight: 700;
-    font-size: 18px;
-}
-
-.muted { color: var(--muted); font-size: 13px; }
-
-.pill-badge {
-    display: inline-flex;
-    padding: 6px 10px;
-    border-radius: 999px;
-    background: rgba(255, 92, 138, 0.1);
-    color: var(--accent);
-    font-size: 12px;
-}
-
-.table-shell {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    box-shadow: var(--shadow);
-    overflow: hidden;
-}
-
-table {
-    width: 100%;
-    border-collapse: collapse;
-    color: var(--text);
-}
-
-th, td {
-    padding: 12px 10px;
-    border-bottom: 1px solid var(--border);
-    text-align: left;
-}
-
-th { color: var(--muted); font-weight: 600; font-size: 13px; }
-
-.btn-link {
-    color: var(--accent);
-    font-weight: 600;
-}
-
-.inline-form { display: inline; }
-
-.card-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.pill-action {
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: rgba(255, 92, 138, 0.08);
-    color: var(--text);
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.danger {
-    background: rgba(231, 76, 60, 0.12);
-    border-color: rgba(231, 76, 60, 0.3);
-    color: #d14343;
-}
-
-.tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 10px;
-    background: rgba(255, 92, 138, 0.08);
-    border-radius: 10px;
-    color: var(--muted);
-}
-
-.spacer { height: 16px; }
-
-.select {
-    padding: 10px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: #ffffff;
-    color: var(--text);
-    font-weight: 600;
-}
-
-@media (max-width: 900px) {
-    .hero { grid-template-columns: 1fr; }
-    .nav { position: static; }
-}
-
-.single-hero {
-    grid-template-columns: 1fr;
-}
-
-/* Admin nav tweak */
-.nav-links a {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 600;
-    color: var(--text);
-}
-
-.user-menu summary {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    color: #1f4ed8;
-    font-weight: 700;
-}
-</style>
+body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff); color: var(--text); }
+.shell { max-width: 1400px; margin: 0 auto; padding: 24px; }
+.nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px 18px; box-shadow:var(--shadow); }
+.brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+.brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); box-shadow: 0 0 10px rgba(255,92,138,0.6); }
+.nav-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.nav-links a { padding:8px 12px; border-radius:10px; color:var(--text); font-weight:500; text-decoration:none; }
+.user-menu { position: relative; }
+.user-menu summary { list-style:none; cursor:pointer; padding:8px 12px; border-radius:10px; }
+.user-menu[open] summary, .user-menu summary:hover { background: rgba(255,92,138,0.08); }
+.user-menu .dropdown { position:absolute; right:0; top:110%; background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow: var(--shadow); min-width:140px; padding:8px 0; z-index:20; }
+.user-menu .dropdown a { display:block; padding:8px 12px; color:var(--text); text-decoration:none; }
+.user-menu .dropdown a:hover { background: rgba(255,92,138,0.08); }
+.pill { background: linear-gradient(135deg,#f11db1,#b9106d); color:#fff !important; box-shadow:0 10px 30px rgba(16,185,129,0.35); }
+.card { background: var(--card); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding:16px; }
+.grid { display:grid; grid-template-columns: 2fr 1fr; gap:16px; }
+.muted { color: var(--muted); }
+.table { width:100%; border-collapse: collapse; table-layout: auto; }
+.table th, .table td { padding:10px; border-bottom:1px solid var(--border); text-align:left; white-space: nowrap; vertical-align: middle; }
+.user-cell { white-space: normal; }
+.status-badge { padding:6px 10px; border-radius:999px; font-weight:600; font-size:12px; display:inline-block; background: #e4e7ff; color:#1f2937; }
+.actions { display:flex; gap:6px; align-items:center; flex-wrap: nowrap; }
+.actions .select { max-width: 200px; }
+.filter-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0; }
+.input { padding:10px 12px; border:1px solid var(--border); border-radius:10px; }
+.select { padding:10px 12px; border:1px solid var(--border); border-radius:10px; }
+.btn { padding:10px 12px; border-radius:10px; border:1px solid var(--border); cursor:pointer; }
+.btn.primary { background: linear-gradient(135deg,#f11d92,#fb7da77b); color:#fff; border:none; }
+.chart-card { background: var(--card); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding:16px; height:100%; }
+.status-badge { background: var(--pink); color:#34495e; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 </head>
 <body>
   <div class="shell">
-            <nav class="nav">
+    <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
         ZozoMart
       </div>
-            <div class="nav-links">
+      <div class="nav-links">
         <a href="/admin/dashboard">📊 Dashboard</a>
         <a href="/inventory">📦 Inventory</a>
         <a href="/admin/users">👥 Users</a>
@@ -373,63 +73,217 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
           </div>
         </details>
       </div>
-      </div>
     </nav>
 
-    <div class="hero-card" style="margin-top:20px;">
-      <div class="section-head">
-        <h2>Order management</h2>
-        <span class="muted">Recent orders</span>
+    <div style="margin-top:16px;">
+      <h2 style="margin:0;">Order management</h2>
+      <p class="muted">Update statuses, inspect details, and track revenue.</p>
+    </div>
+
+    <div class="grid" style="margin-top:12px;">
+      <div class="chart-card">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h3 style="margin:0;">Sales (all orders)</h3>
+          <span class="muted" style="font-weight:600;">Last 6 months</span>
+        </div>
+        <canvas id="salesChart" height="180"></canvas>
       </div>
-      <div class="table-shell">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>User ID</th>
-              <th>Status</th>
-              <th>Total</th>
-              <th>Created</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% orders.forEach(function(order) { %>
-              <tr>
-                <td><%= order.id %></td>
-                <td><%= order.user_id || order.userId || 'N/A' %></td>
-                <td><%= order.status || 'N/A' %></td>
-                <td><%= order.total || order.total_amount || order.totalAmount || 'N/A' %></td>
-                <td><%= order.created_at || order.createdAt || 'N/A' %></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
+      <div class="chart-card">
+        <h3 style="margin:0;">Status summary</h3>
+        <canvas id="statusChart" height="180"></canvas>
       </div>
     </div>
+
+    <div class="card" style="margin-top:14px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <h3 style="margin:0;">Orders</h3>
+        <div class="filter-row">
+          <select class="select" id="statusFilter">
+            <option value="">All status</option>
+            <option>payment successful</option>
+            <option>payment failed</option>
+            <option>packing</option>
+            <option>ready for pickup</option>
+            <option>out for delivery</option>
+            <option>completed</option>
+          </select>
+          <select class="select" id="sortSelect">
+            <option value="date-desc">Newest</option>
+            <option value="date-asc">Oldest</option>
+            <option value="total-desc">Total high → low</option>
+            <option value="total-asc">Total low → high</option>
+          </select>
+        </div>
+      </div>
+
+      <table class="table" id="ordersTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Status</th>
+            <th>Total</th>
+            <th>Placed</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (orders || []).forEach(function(o){ %>
+            <tr data-id="<%= o.id %>" data-status="<%= (o.status || '').toLowerCase() %>" data-total="<%= Number(o.total) %>" data-date="<%= o.createdAt ? new Date(o.createdAt).getTime() : 0 %>">
+              <td>#<%= o.id %></td>
+              <td><%= o.userId || '-' %> <span class="muted" style="display:block;"><%= o.username || '' %></span></td>
+              <td><span class="status-badge" data-status="<%= (o.status || 'placed').toLowerCase() %>"><%= o.status || 'placed' %></span></td>
+              <td>$ <%= Number(o.total).toFixed(2) %></td>
+              <td><%= o.createdAt ? (o.createdAt.toLocaleString ? o.createdAt.toLocaleString() : o.createdAt) : '-' %></td>
+              <td class="actions">
+                <button class="btn" type="button">Details</button>
+                <% const shipType = (o.deliveryType || '').toLowerCase(); const isPickup = shipType.includes('pickup'); const isDoorstep = shipType.includes('doorstep') || shipType.includes('delivery'); %>
+                <select class="select status-select">
+                  <option <%= o.status==='payment successful' ? 'selected' : '' %>>payment successful</option>
+                  <option <%= o.status==='payment failed' ? 'selected' : '' %>>payment failed</option>
+                  <option <%= o.status==='packing' ? 'selected' : '' %>>packing</option>
+                  <% if (!isDoorstep) { %><option <%= o.status==='ready for pickup' ? 'selected' : '' %>>ready for pickup</option><% } %>
+                  <% if (!isPickup) { %><option <%= o.status==='out for delivery' ? 'selected' : '' %>>out for delivery</option><% } %>
+                  <option <%= o.status==='completed' ? 'selected' : '' %>>completed</option>
+                </select>
+                <button class="btn primary update-btn" type="button">Update</button>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
   </div>
+
+  <script>
+    (function(){
+      const orders = <%- JSON.stringify(orders || []) %>;
+      const statusColors = {
+        'payment successful': '#c8d9ff',
+        'payment failed': '#f8cde5',
+        'packing': '#ffe4c7',
+        'ready for pickup': '#d6c8ff',
+        'out for delivery': '#c8f0df',
+        'completed': '#bde7f5',
+      };
+
+      // Sales chart (last 6 months based on most recent order)
+      const salesCtx = document.getElementById('salesChart');
+      const monthKey = (o) => {
+        const d = new Date(o.createdAt);
+        if (isNaN(d)) return null;
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+      };
+      const orderMonths = orders.map(monthKey).filter(Boolean);
+      let latest = new Date();
+      orderMonths.forEach(key => {
+        const [y,m] = key.split('-').map(Number);
+        const d = new Date(y, m-1, 1);
+        if (!isNaN(d) && d > latest) latest = d;
+      });
+      const months = [];
+      for (let i = 5; i >=0; i--) {
+        const d = new Date(latest.getFullYear(), latest.getMonth()-i, 1);
+        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+        months.push({ key, label: key });
+      }
+      const salesByMonth = months.map(m => {
+        const sum = orders.reduce((s,o)=>{
+          const mk = monthKey(o);
+          if (mk === m.key) return s + Number(o.total||0);
+          return s;
+        },0);
+        return sum;
+      });
+      new Chart(salesCtx, {
+        type: 'bar',
+        data: { labels: months.map(m=>m.label), datasets:[{ label:'Sales', data: salesByMonth, backgroundColor:'rgba(200, 217, 255, 0.6)', borderColor:'rgba(200,217,255,0.9)' }]},
+        options: { plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(ctx)=>'$'+ctx.parsed.y.toFixed(2) } }, datalabels:{ color:'#1f2937', anchor:'end', align:'end', formatter:(v)=>'$'+Number(v).toFixed(2) }}, scales:{ y:{ beginAtZero:true } } },
+        plugins:[ChartDataLabels]
+      });
+
+      // Status chart
+      const statusCtx = document.getElementById('statusChart');
+      const legendStatuses = ['payment successful','payment failed','packing','ready for pickup','out for delivery','completed'];
+      const counts = {};
+      legendStatuses.forEach(s => counts[s] = 0);
+      orders.forEach(o => {
+        const s = (o.status || 'placed').toLowerCase();
+        if (counts.hasOwnProperty(s)) counts[s] += 1;
+      });
+      const statusLabels = legendStatuses;
+      const statusData = statusLabels.map(k => counts[k] || 0);
+      new Chart(statusCtx, {
+        type:'pie',
+        data:{ labels: statusLabels, datasets:[{ data: statusData, backgroundColor: statusLabels.map(l => statusColors[l] || '#e4e7ff') }]},
+        options:{ plugins:{ legend:{ position:'bottom' }, datalabels:{ color:'#1f2937', formatter:(v)=> v>0 ? v : '' } } },
+        plugins:[ChartDataLabels]
+      });
+
+      // table interactions
+      const rows = Array.from(document.querySelectorAll('#ordersTable tbody tr'));
+      const statusFilter = document.getElementById('statusFilter');
+      const sortSelect = document.getElementById('sortSelect');
+
+      function paintBadges() {
+        document.querySelectorAll('.status-badge').forEach(b => {
+          const st = b.dataset.status;
+          const bg = statusColors[st] || '#e4e7ff';
+          b.style.backgroundColor = bg;
+          b.style.color = '#1f2937';
+          b.style.border = '1px solid rgba(0,0,0,0.03)';
+        });
+      }
+
+      function applyFilters(){
+        const status = (statusFilter.value||'').toLowerCase();
+        let filtered = rows.filter(r => {
+          const st = r.dataset.status;
+          const matchesS = status ? st === status : true;
+          return matchesS;
+        });
+        const sorter = {
+          'date-desc': (a,b)=> Number(b.dataset.date)-Number(a.dataset.date),
+          'date-asc': (a,b)=> Number(a.dataset.date)-Number(b.dataset.date),
+          'total-desc': (a,b)=> Number(b.dataset.total)-Number(a.dataset.total),
+          'total-asc': (a,b)=> Number(a.dataset.total)-Number(b.dataset.total)
+        }[sortSelect.value];
+        if (sorter) filtered.sort(sorter);
+        const tbody = document.querySelector('#ordersTable tbody');
+        tbody.innerHTML = '';
+        filtered.forEach(r => tbody.appendChild(r));
+        paintBadges();
+      }
+
+      statusFilter.addEventListener('change', applyFilters);
+      sortSelect.addEventListener('change', applyFilters);
+      applyFilters();
+
+      // status update
+      document.querySelectorAll('.update-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const row = btn.closest('tr');
+          const id = row.dataset.id;
+          const statusSel = row.querySelector('.status-select');
+          const newStatus = statusSel.value;
+          const res = await fetch(`/admin/orders/${id}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `status=${encodeURIComponent(newStatus)}`
+          });
+          if (res.ok) {
+            row.dataset.status = newStatus.toLowerCase();
+            row.querySelector('.status-badge').textContent = newStatus;
+            applyFilters();
+            alert('Status updated');
+          } else {
+            alert('Update failed');
+          }
+        });
+      });
+
+      paintBadges();
+    })();
+  </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

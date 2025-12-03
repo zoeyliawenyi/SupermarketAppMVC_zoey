@@ -114,6 +114,7 @@ app.get('/admin/users', checkAuthenticated, checkAdmin, adminController.listUser
 app.post('/admin/users/:id/role', checkAuthenticated, checkAdmin, adminController.changeUserRole);
 app.post('/admin/users/:id/delete', checkAuthenticated, checkAdmin, adminController.removeUser);
 app.get('/admin/orders', checkAuthenticated, checkAdmin, orderController.listAll);
+app.post('/admin/orders/:id/status', checkAuthenticated, checkAdmin, orderController.updateStatus);
 
 // Forgot password
 app.get('/forgot-password', (req, res) => {
