@@ -79,22 +79,24 @@ th { color:var(--muted); font-weight:700; }
       <h3 style="margin:0 0 8px;">Status</h3>
       <div class="status-row">
         <% 
+          const ship = (order.deliveryType || '').toLowerCase();
+          const current = (order.status || '').toLowerCase();
           const steps = [
-            { num:1, label:'Payment Successful', key:'payment successful' },
+            { num:1, label:(current==='payment failed' ? 'Payment Failed' : 'Payment Successful'), key:(current==='payment failed' ? 'payment failed' : 'payment successful') },
             { num:2, label:'Packing', key:'packing' },
-            { num:3, label:'Out For Delivery', key:'out for delivery' },
+            { num:3, label: ship.includes('pickup') ? 'Ready for pickup' : 'Out For Delivery', key: ship.includes('pickup') ? 'ready for pickup' : 'out for delivery' },
             { num:4, label:'Completed', key:'completed' },
           ];
-          const current = (order.status || '').toLowerCase();
           const currentIdx = steps.findIndex(s => s.key === current);
         %>
         <% steps.forEach(function(step, idx){ 
              const isDone = currentIdx >= idx && currentIdx !== -1;
-             const badgeColor = isDone ? '#16a34a' : '#e5e7eb';
+             const badgeColor = step.key === 'payment failed' ? '#e03131' : (isDone ? '#16a34a' : '#e5e7eb');
+             const badgeTextColor = step.key === 'payment failed' ? '#fff' : (isDone ? '#fff' : '#1f2937');
              const mutedText = isDone ? 'Completed' : 'Pending';
         %>
           <div class="status-chip">
-            <span class="badge" style="background:<%= badgeColor %>; color:<%= isDone ? '#fff' : '#1f2937' %>;"><%= step.num %></span>
+            <span class="badge" style="background:<%= badgeColor %>; color:<%= badgeTextColor %>;"><%= step.num %></span>
             <div>
               <div style="font-weight:700;"><%= step.label %></div>
               <div class="muted"><%= mutedText %></div>
