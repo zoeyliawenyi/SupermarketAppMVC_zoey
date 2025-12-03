@@ -136,7 +136,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
               <td>$ <%= Number(o.total).toFixed(2) %></td>
               <td><%= o.createdAt ? (o.createdAt.toLocaleString ? o.createdAt.toLocaleString() : o.createdAt) : '-' %></td>
               <td class="actions">
-                <button class="btn" type="button">Details</button>
+                <a class="btn" href="/admin/orders/<%= o.id %>">Details</a>
                 <% const shipType = (o.deliveryType || '').toLowerCase(); const isPickup = shipType.includes('pickup'); const isDoorstep = shipType.includes('doorstep') || shipType.includes('delivery'); %>
                 <select class="select status-select">
                   <option <%= o.status==='payment successful' ? 'selected' : '' %>>payment successful</option>

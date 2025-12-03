@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Order #<%= order.id %></title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+:root { --text:#1f2430; --muted:#6b7280; --border:#e5e7eb; --shadow:0 12px 30px rgba(17,24,39,0.08); --radius:16px; }
+body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff); color:var(--text); }
+.shell { max-width: 1200px; margin:0 auto; padding:24px; }
+.nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px 18px; box-shadow:var(--shadow); }
+.brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+.brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); box-shadow: 0 0 10px rgba(255,92,138,0.6); }
+.nav-links { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.nav-links a { padding:8px 14px; border-radius:10px; color:var(--text); font-weight:500; text-decoration:none; }
+.cart-link { position:relative; display:inline-flex; align-items:center; gap:6px; }
+.cart-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:2px 6px; border-radius:999px; background:#16804a; color:#fff; font-size:12px; font-weight:700; }
+.user-menu { position: relative; }
+.user-menu summary { list-style: none; cursor: pointer; padding: 8px 12px; border-radius: 10px; }
+.user-menu[open] summary, .user-menu summary:hover { background: rgba(255, 92, 138, 0.12); }
+.user-menu .dropdown { position: absolute; right: 0; top: 110%; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); min-width: 150px; padding: 8px 0; z-index: 20; }
+.user-menu .dropdown a { display: block; padding: 8px 12px; color: var(--text); text-decoration: none; }
+.user-menu .dropdown a:hover { background: rgba(255, 92, 138, 0.12); }
+.card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; }
+.status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
+.status-chip { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:#f9fafb; min-width:180px; }
+.badge { padding:8px 12px; border-radius:999px; font-weight:700; font-size:13px; background:#e5e7eb; color:#1f2937; min-width:32px; text-align:center; }
+table { width:100%; border-collapse: collapse; }
+th, td { padding:12px 10px; border-bottom:1px solid var(--border); text-align:left; }
+th { color:var(--muted); font-weight:700; }
+.summary { background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow); }
+.muted { color:var(--muted); }
+.btn { padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer; font-weight:600; text-decoration:none; color:var(--text); }
+.btn.primary { background: linear-gradient(135deg,#ff91b9,#f04dd0); color:#fff; border:none; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand"><span class="dot"></span>ZozoMart</div>
+      <div class="nav-links">
+        <% if (isAdminView) { %>
+          <a href="/admin/dashboard">📊 Dashboard</a>
+          <a href="/inventory">📦 Inventory</a>
+          <a href="/admin/users">👥 Users</a>
+          <a href="/admin/orders">📑 Orders</a>
+        <% } else { %>
+          <a href="/shopping">Home</a>
+          <a href="/favourites">Favourites</a>
+          <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
+        <% } %>
+        <details class="user-menu">
+          <summary>👤 <%= user.username %> ▾</summary>
+          <div class="dropdown">
+            <% if (isAdminView) { %>
+              <a href="/admin/orders">Orders</a>
+            <% } else { %>
+              <a href="/account">My Account</a>
+              <a href="/orders">My Orders</a>
+              <a href="/shopping">Shop</a>
+            <% } %>
+            <a href="/logout">Logout</a>
+          </div>
+        </details>
+      </div>
+    </nav>
+
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+      <div>
+        <p class="muted" style="margin:0; font-weight:700; color:#2563eb;">ORDER #<%= order.id %></p>
+        <h2 style="margin:2px 0 6px;">Order details</h2>
+        <p class="muted" style="margin:0;">Placed: <%= order.createdAt ? (order.createdAt.toLocaleString ? order.createdAt.toLocaleString() : order.createdAt) : '' %></p>
+      </div>
+      <a href="<%= backLink %>" class="btn">← Back to orders</a>
+    </div>
+
+    <div class="card" style="margin-top:14px;">
+      <h3 style="margin:0 0 8px;">Status</h3>
+      <div class="status-row">
+        <% 
+          const steps = [
+            { num:1, label:'Payment Successful', key:'payment successful' },
+            { num:2, label:'Packing', key:'packing' },
+            { num:3, label:'Out For Delivery', key:'out for delivery' },
+            { num:4, label:'Completed', key:'completed' },
+          ];
+          const current = (order.status || '').toLowerCase();
+          const currentIdx = steps.findIndex(s => s.key === current);
+        %>
+        <% steps.forEach(function(step, idx){ 
+             const isDone = currentIdx >= idx && currentIdx !== -1;
+             const badgeColor = isDone ? '#16a34a' : '#e5e7eb';
+             const mutedText = isDone ? 'Completed' : 'Pending';
+        %>
+          <div class="status-chip">
+            <span class="badge" style="background:<%= badgeColor %>; color:<%= isDone ? '#fff' : '#1f2937' %>;"><%= step.num %></span>
+            <div>
+              <div style="font-weight:700;"><%= step.label %></div>
+              <div class="muted"><%= mutedText %></div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: 1.6fr 1fr; gap:14px; margin-top:14px;">
+      <div class="card">
+        <h3 style="margin:0 0 10px;">Items</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th>Qty</th>
+              <th>Price</th>
+              <th>Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!items || !items.length) { %>
+              <tr><td colspan="4" class="muted">No items found for this order.</td></tr>
+            <% } else { %>
+              <% items.forEach(function(it){ %>
+                <tr>
+                  <td style="display:flex; align-items:center; gap:8px;">
+                    <% const imgSrc = it.productImage ? '/images/' + it.productImage : (order.firstImage ? '/images/' + order.firstImage : '/images/placeholder.png'); %>
+                    <img src="<%= imgSrc %>" alt="<%= it.productName || 'item' %>" style="width:42px; height:42px; border-radius:10px; border:1px solid var(--border); object-fit:cover; background:#f3f4f6;">
+                    <span><%= it.productName || ('Item #' + it.productId) %></span>
+                  </td>
+                  <td><%= it.quantity %></td>
+                  <td>$<%= Number(it.price).toFixed(2) %></td>
+                  <td>$<%= (Number(it.price)*Number(it.quantity)).toFixed(2) %></td>
+                </tr>
+              <% }) %>
+            <% } %>
+            <tr>
+              <td colspan="3" style="text-align:right; font-weight:700;">Items subtotal</td>
+              <td>$<%= itemsSubtotal.toFixed(2) %></td>
+            </tr>
+            <tr>
+              <td colspan="3" style="text-align:right; font-weight:700;">Shipping</td>
+              <td>$<%= shippingFee.toFixed(2) %></td>
+            </tr>
+            <tr>
+              <td colspan="3" style="text-align:right; font-weight:700;">Order total</td>
+              <td>$<%= total.toFixed(2) %></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="summary">
+        <h3 style="margin:0 0 10px;">Summary</h3>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; row-gap:8px;">
+          <div class="muted">Status</div><div><%= order.status || 'placed' %></div>
+          <div class="muted">Payment</div><div><%= order.paymentMethod || '-' %></div>
+          <div class="muted">Shipping</div><div><%= order.deliveryType || '-' %></div>
+          <div class="muted">Ship to</div><div><%= order.address || '-' %></div>
+          <div class="muted">Items subtotal</div><div>$<%= itemsSubtotal.toFixed(2) %></div>
+          <div class="muted">Shipping</div><div>$<%= shippingFee.toFixed(2) %></div>
+          <div class="muted" style="font-weight:700;">Order total</div><div style="font-weight:700;">$<%= total.toFixed(2) %></div>
+        </div>
+        <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+          <a class="btn" href="/orders">Back to orders</a>
+          <a class="btn primary" href="/orders/<%= order.id %>/invoice" target="_blank">Invoice (PDF)</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

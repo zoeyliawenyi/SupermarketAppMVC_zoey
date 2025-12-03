@@ -7,6 +7,7 @@ const app = express();
 const adminController = require('./controllers/AdminController');
 const orderController = require('./controllers/OrderController');
 const Order = require('./models/Order');
+const OrderItem = require('./models/OrderItem');
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({
@@ -449,6 +450,7 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
     req.session.checkoutShipping = shipping;
     const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const totalQuantity = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
     const total = subtotal + shippingCost;
 
     const paymentMethod = req.body.paymentMethod || shipping.payment || 'paynow';
@@ -486,6 +488,12 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
             req.flash('error', 'Could not place order.');
             return res.redirect('/cart');
         }
+        // persist items to order_items if table exists
+        OrderItem.createMany(orderId, cart, (itemErr) => {
+            if (itemErr) {
+                console.error('DB error inserting order_items:', itemErr);
+            }
+        });
         req.session.lastOrder = {
             id: orderId,
             items: cart,
@@ -493,8 +501,18 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
             subtotal,
             shippingCost,
             total,
+            totalQuantity,
             date: new Date().toISOString()
         };
+        if (!req.session.orderSummary) req.session.orderSummary = {};
+        req.session.orderSummary[orderId] = {
+            image: cart[0] ? cart[0].image : null,
+            qty: totalQuantity
+        };
+        // keep lastOrder populated so immediate redirect pages can show items
+        req.session.lastOrder = req.session.lastOrder || {};
+        req.session.lastOrder.items = cart;
+        req.session.lastOrder.totalQuantity = totalQuantity;
         if (status === 'payment failed') {
             // keep cart so user can retry from checkout
             res.locals.cartCount = req.session.cart.reduce((sum, i) => sum + (i.quantity || 0), 0);
@@ -521,6 +539,9 @@ app.get('/orders/fail', checkAuthenticated, (req, res) => {
     const id = req.query.id || (req.session.lastOrder && req.session.lastOrder.id);
     res.render('orderFail', { orderId: id || '' });
 });
+
+app.get('/admin/orders/:id', checkAuthenticated, checkAdmin, orderController.detail);
+app.get('/orders/:id', checkAuthenticated, orderController.detail);
 
 app.get('/logout', (req, res) => {
     req.session.destroy();
