@@ -116,6 +116,7 @@ app.post('/admin/users/:id/role', checkAuthenticated, checkAdmin, adminControlle
 app.post('/admin/users/:id/delete', checkAuthenticated, checkAdmin, adminController.removeUser);
 app.get('/admin/orders', checkAuthenticated, checkAdmin, orderController.listAll);
 app.post('/admin/orders/:id/status', checkAuthenticated, checkAdmin, orderController.updateStatus);
+app.get('/admin/orders/:id/invoice', checkAuthenticated, checkAdmin, orderController.invoice);
 
 // Forgot password
 app.get('/forgot-password', (req, res) => {
@@ -542,6 +543,7 @@ app.get('/orders/fail', checkAuthenticated, (req, res) => {
 
 app.get('/admin/orders/:id', checkAuthenticated, checkAdmin, orderController.detail);
 app.get('/orders/:id', checkAuthenticated, orderController.detail);
+app.get('/orders/:id/invoice', checkAuthenticated, orderController.invoice);
 
 app.get('/logout', (req, res) => {
     req.session.destroy();

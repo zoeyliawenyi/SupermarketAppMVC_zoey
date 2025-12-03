@@ -136,3 +136,29 @@ exports.detail = (req, res) => {
     });
   });
 };
+
+exports.invoice = (req, res) => {
+  const orderId = parseInt(req.params.id, 10);
+  if (Number.isNaN(orderId)) return res.redirect('/orders');
+  Order.findByIdWithAgg(orderId, (err, order) => {
+    if (err || !order) {
+      console.error('DB error /orders/:id/invoice:', err);
+      return res.redirect('/orders');
+    }
+    OrderItem.findByOrderId(orderId, (itemErr, items) => {
+      if (itemErr) console.error('DB error order_items invoice:', itemErr);
+      const list = items || [];
+      const itemsSubtotal = list.reduce((s,it)=> s + (Number(it.price||0) * Number(it.quantity||0)), 0);
+      const shippingFee = (order.deliveryType || '').toLowerCase().includes('delivery') ? 2.0 : 0;
+      const total = itemsSubtotal + shippingFee;
+      res.render('invoice', {
+        user: req.session.user,
+        order,
+        items: list,
+        itemsSubtotal,
+        shippingFee,
+        total
+      });
+    });
+  });
+};
