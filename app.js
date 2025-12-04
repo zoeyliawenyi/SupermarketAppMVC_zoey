@@ -6,6 +6,8 @@ const multer = require('multer');
 const app = express();
 const adminController = require('./controllers/AdminController');
 const orderController = require('./controllers/OrderController');
+const favoriteController = require('./controllers/FavoriteController');
+const reviewController = require('./controllers/ReviewController');
 const Order = require('./models/Order');
 const OrderItem = require('./models/OrderItem');
 
@@ -32,6 +34,8 @@ app.use(express.static('public'));
 app.use(express.urlencoded({
     extended: false
 }));
+// enable json body parsing (for AJAX like favorites toggle)
+app.use(express.json());
 
 //TO DO: Insert code for Session Middleware below 
 app.use(session({
@@ -112,7 +116,7 @@ app.get('/',  (req, res) => {
 // Admin-only routes
 app.get('/admin/dashboard', checkAuthenticated, checkAdmin, adminController.dashboard);
 app.get('/admin/users', checkAuthenticated, checkAdmin, adminController.listUsers);
-app.post('/admin/users/:id/role', checkAuthenticated, checkAdmin, adminController.changeUserRole);
+app.post('/admin/users/:id/update', checkAuthenticated, checkAdmin, adminController.updateUserInfo);
 app.post('/admin/users/:id/delete', checkAuthenticated, checkAdmin, adminController.removeUser);
 app.get('/admin/orders', checkAuthenticated, checkAdmin, orderController.listAll);
 app.post('/admin/orders/:id/status', checkAuthenticated, checkAdmin, orderController.updateStatus);
@@ -274,19 +278,29 @@ app.post('/login', (req, res) => {
     });
 });
 
-app.get('/shopping', checkAuthenticated, (req, res) => {
-    connection.query('SELECT * FROM products', (error, results) => {
+app.get('/shopping', checkAuthenticated, favoriteController.getIds, (req, res) => {
+    const sql = `
+      SELECT p.*,
+             COALESCE(AVG(r.rating),0) AS avgRating,
+             COUNT(r.id) AS reviewCount
+      FROM products p
+      LEFT JOIN reviews r ON r.productId = p.id
+      GROUP BY p.id
+      ORDER BY p.id DESC
+    `;
+    connection.query(sql, (error, results) => {
         if (error) {
             console.error('DB error /shopping:', error);
             return res.status(500).send('Database error');
         }
-        res.render('shopping', { user: req.session.user, products: results });
+        res.render('shopping', { user: req.session.user, products: results, favoriteIds: res.locals.favoriteIds || [] });
     });
 });
 
-app.get('/favourites', checkAuthenticated, (req, res) => {
-    res.render('favourites', { user: req.session.user });
-});
+app.get('/favorites', checkAuthenticated, favoriteController.list);
+app.post('/favorites/:productId/toggle', checkAuthenticated, favoriteController.toggle);
+app.get('/reviews', checkAuthenticated, reviewController.list);
+app.post('/reviews', checkAuthenticated, reviewController.create);
 
 app.get('/account', checkAuthenticated, (req, res) => {
     res.render('account', { user: req.session.user, messages: req.flash('success'), errors: req.flash('error') });
@@ -600,16 +614,32 @@ app.get('/logout', (req, res) => {
 
 app.get('/product/:id', checkAuthenticated, (req, res) => {
   const productId = req.params.id;
-  connection.query('SELECT * FROM products WHERE id = ?', [productId], (error, results) => {
+  const productSql = `
+    SELECT p.*,
+           COALESCE(AVG(r.rating),0) AS avgRating,
+           COUNT(r.id) AS reviewCount
+    FROM products p
+    LEFT JOIN reviews r ON r.productId = p.id
+    WHERE p.id = ?
+  `;
+  connection.query(productSql, [productId], (error, results) => {
       if (error) {
           console.error('DB error /product/:id:', error);
           return res.status(500).send('Database error');
       }
-      if (results.length > 0) {
-          res.render('product', { product: results[0], user: req.session.user  });
-      } else {
-          res.status(404).send('Product not found');
-      }
+      if (!results.length) return res.status(404).send('Product not found');
+      const product = results[0];
+      connection.query(
+        'SELECT r.*, u.username FROM reviews r LEFT JOIN users u ON u.id = r.userId WHERE r.productId = ? ORDER BY r.created_at DESC, r.id DESC',
+        [productId],
+        (revErr, reviewRows) => {
+          if (revErr) {
+            console.error('DB error /product/:id reviews:', revErr);
+            return res.render('product', { product, user: req.session.user, reviews: [] });
+          }
+          res.render('product', { product, user: req.session.user, reviews: reviewRows || [] });
+        }
+      );
   });
 });
 
@@ -740,5 +770,3 @@ app.get('/deleteProduct/:id', checkAuthenticated, checkAdmin, (req, res) => {
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-
-

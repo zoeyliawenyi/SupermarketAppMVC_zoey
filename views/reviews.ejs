@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Reviews</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+:root { --text:#1f2430; --muted:#6b7280; --border:#e5e7eb; --shadow:0 12px 30px rgba(17,24,39,0.08); --radius:16px; --accent:#ff5c8a; --accent-2:#ff8fb1; }
+body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff); color:var(--text); }
+.shell { max-width: 1080px; margin: 0 auto; padding: 20px; }
+.nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; box-shadow:var(--shadow); margin-bottom:14px; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+.brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); box-shadow:0 0 10px rgba(255,92,138,0.6); }
+.nav-links { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.nav-links a { padding:8px 14px; border-radius:10px; color:var(--text); font-weight:500; text-decoration:none; }
+.nav-links a:hover { background: rgba(255,92,138,0.12); }
+.cart-link { position:relative; display:inline-flex; align-items:center; gap:6px; }
+.cart-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:2px 6px; border-radius:999px; background:#16804a; color:#fff; font-size:12px; font-weight:700; }
+.user-menu { position: relative; }
+.user-menu summary { list-style: none; cursor: pointer; padding: 8px 12px; border-radius: 10px; }
+.user-menu[open] summary, .user-menu summary:hover { background: rgba(255, 92, 138, 0.12); }
+.user-menu .dropdown { position: absolute; right: 0; top: 110%; background: #fff; border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); min-width: 150px; padding: 8px 0; z-index: 20; }
+.user-menu .dropdown a { display: block; padding: 8px 12px; color: var(--text); text-decoration: none; }
+.user-menu .dropdown a:hover { background: rgba(255, 92, 138, 0.12); }
+.card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin:14px auto 0; }
+.form-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; }
+.input, textarea, select { width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; font-family:'Poppins',sans-serif; }
+.cta { padding:10px 14px; border:none; border-radius:12px; font-weight:600; cursor:pointer; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); color:#fff; text-decoration:none; }
+.muted { color:var(--muted); }
+.review-list { display:flex; flex-direction:column; gap:10px; margin-top:12px; }
+.review-item { border:1px solid var(--border); border-radius:12px; padding:12px; box-shadow:var(--shadow); background:#fff; }
+.stars-input .star.active { color:#fbbf24; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand"><span class="dot"></span>ZozoMart</div>
+      <div class="nav-links">
+        <a href="/shopping">Home</a>
+        <a href="/favorites">Favorites</a>
+        <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
+        <details class="user-menu">
+          <summary>👤 <%= user.username %> ▾</summary>
+          <div class="dropdown">
+            <a href="/account">My Account</a>
+            <a href="/orders">My Orders</a>
+            <a href="/logout">Logout</a>
+          </div>
+        </details>
+      </div>
+    </nav>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px;">Leave a review</h2>
+      <p class="muted" style="margin:0 0 12px;">Share your feedback on products from your completed orders.</p>
+      <% if (errors && errors.length) { %>
+        <% errors.forEach(function(err){ %><div class="muted" style="color:#b91c1c;"><%= err %></div><% }) %>
+      <% } %>
+      <% if (messages && messages.length) { %>
+        <% messages.forEach(function(m){ %><div class="muted" style="color:#166534;"><%= m %></div><% }) %>
+      <% } %>
+      <form action="/reviews" method="POST" style="display:grid; gap:12px; margin-top:8px;">
+        <div class="form-grid">
+          <label>Product ID
+            <input class="input" type="number" name="productId" min="1" value="<%= selectedProductId || '' %>" required style="max-width:160px;">
+          </label>
+          <label>Rating
+            <div class="stars-input" style="display:flex; gap:6px; align-items:center; padding:6px 0;">
+              <% for (let s = 1; s <= 5; s++) { %>
+                <label style="cursor:pointer;">
+                  <input type="radio" name="rating" value="<%= s %>" style="display:none;">
+                  <span class="star" data-value="<%= s %>" style="font-size:22px; color:#d1d5db;">☆</span>
+                </label>
+              <% } %>
+              <span class="muted" style="font-size:12px;" id="starCount"></span>
+            </div>
+          </label>
+        </div>
+        <label>Comment
+          <textarea name="comment" rows="3" class="input" placeholder="What did you think?"></textarea>
+        </label>
+        <button class="cta" type="submit">Submit review</button>
+      </form>
+    </div>
+
+    <div class="card" style="margin-top:12px;">
+      <h3 style="margin:0 0 8px;">Your reviews</h3>
+      <% if (!reviews || !reviews.length) { %>
+        <p class="muted" style="margin:0;">No reviews yet.</p>
+      <% } else { %>
+        <div class="review-list">
+          <% reviews.forEach(function(r){ %>
+            <div class="review-item">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+                <div><strong><%= r.productName || ('Product #' + r.productId) %></strong></div>
+                <div class="muted"><%= r.created_at ? r.created_at.toISOString ? r.created_at.toISOString() : r.created_at : '' %></div>
+              </div>
+              <div class="muted">Rating: <strong><%= r.rating %></strong></div>
+              <div><%= r.comment || '' %></div>
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</body>
+<script>
+  (function(){
+    const stars = Array.from(document.querySelectorAll('.stars-input .star'));
+    const counter = document.getElementById('starCount');
+    const select = (val) => {
+      stars.forEach(st => {
+        const v = Number(st.dataset.value);
+        if (v <= val) {
+          st.textContent = '★';
+          st.classList.add('active');
+        } else {
+          st.textContent = '☆';
+          st.classList.remove('active');
+        }
+      });
+      counter.textContent = val ? `${val} / 5` : '';
+    };
+    stars.forEach(st => {
+      st.addEventListener('click', () => {
+        const val = Number(st.dataset.value);
+        const radio = st.previousElementSibling;
+        if (radio) radio.checked = true;
+        select(val);
+      });
+    });
+  })();
+</script>
+</html>

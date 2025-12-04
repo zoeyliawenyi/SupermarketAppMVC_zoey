@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -418,11 +418,11 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       </div>
       <div class="nav-links">
         <a href="/shopping">Home</a>
-        <a href="/favourites">Favourites</a>
+        <a href="/favorites">Favourites</a>
         <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
         <% if (user && user.role === 'admin') { %><a href="/inventory">Inventory</a><% } %>
         <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
+          <summary>?? <%= user.username %> ?</summary>
           <div class="dropdown">
             <a href="/account">My Account</a>
             <a href="/orders">My Orders</a>
@@ -442,6 +442,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
           const dietLower = (product.dietary || '').toLowerCase();
           const badgeClass = dietLower === 'halal' ? 'pill-badge small halal' : 'pill-badge small';
           const maxQty = Math.min(5, product.quantity || product.stock || 5);
+          const ratingRounded = Math.round(product.avgRating || 0);
         %>
         <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap:18px; align-items:start;">
           <div>
@@ -455,6 +456,12 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
             </div>
             <div class="muted" style="margin-top:8px;">Category: <strong><%= product.category || '-' %></strong></div>
             <div class="muted" style="margin-top:4px;">Dietary: <strong style="color:<%= dietLower === 'halal' ? '#16804a' : 'inherit' %>;"><%= product.dietary || '-' %></strong></div>
+            <div class="muted" style="margin-top:4px; display:flex; gap:6px; align-items:center;">
+              <% for (let s = 1; s <= 5; s++) { %>
+                <span style="color:#fbbf24; font-size:16px;"><%= s <= ratingRounded ? '★' : '☆' %></span>
+              <% } %>
+              <span style="font-size:12px; color:var(--muted);"><%= product.reviewCount || 0 %> review(s)</span>
+            </div>
             <p style="margin-top:10px;"><%= product.description || 'No description available.' %></p>
             <p class="price" style="margin-top:8px;">$ <%= Number(product.price).toFixed(2) %></p>
             <form action="/add-to-cart/<%= product.id %>" method="POST" class="buy-row" data-max="<%= maxQty %>">
@@ -471,6 +478,26 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         </div>
       <% } else { %>
         <p>No product found.</p>
+      <% } %>
+      <% if (reviews && reviews.length) { %>
+        <div class="card" style="margin-top:16px;">
+          <h3 style="margin:0 0 8px;">Reviews</h3>
+          <% reviews.forEach(function(r){ %>
+            <div style="border-bottom:1px solid var(--border); padding:8px 0;">
+              <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
+                <strong><%= r.username || ('User #' + r.userId) %></strong>
+                <span class="muted"><%= r.created_at ? (r.created_at.toLocaleString ? r.created_at.toLocaleString() : r.created_at) : '' %></span>
+              </div>
+              <div>
+                <% const rr = Math.round(r.rating || 0); %>
+                <% for (let s = 1; s <= 5; s++) { %>
+                  <span style="color:#fbbf24; font-size:14px;"><%= s <= rr ? '★' : '☆' %></span>
+                <% } %>
+              </div>
+              <div class="muted"><%= r.comment || '' %></div>
+            </div>
+          <% }) %>
+        </div>
       <% } %>
       <div class="cta-row" style="margin-top:14px;">
         <% if (user.role === 'admin') { %>
@@ -498,5 +525,6 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   </script>
 </body>
 </html>
+
 
 

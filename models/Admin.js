@@ -24,13 +24,9 @@ const getUsers = (callback) => {
     db.query(sql, callback);
 };
 
-const updateUserRole = (userId, role, callback) => {
-    const allowedRoles = ['admin', 'user'];
-    if (!allowedRoles.includes(role)) {
-        return callback(new Error('Invalid role'));
-    }
-    const sql = 'UPDATE users SET role = ? WHERE id = ?';
-    db.query(sql, [role, userId], callback);
+const updateUserInfo = (userId, email, address, contact, callback) => {
+    const sql = 'UPDATE users SET email = ?, address = ?, contact = ? WHERE id = ?';
+    db.query(sql, [email, address, contact, userId], callback);
 };
 
 const deleteUser = (userId, callback) => {
@@ -46,7 +42,7 @@ const getOrders = (callback) => {
 module.exports = {
     getDashboardStats,
     getUsers,
-    updateUserRole,
+    updateUserInfo,
     deleteUser,
     getOrders
 };

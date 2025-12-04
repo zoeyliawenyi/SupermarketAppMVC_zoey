@@ -47,7 +47,7 @@ th { color:var(--muted); font-weight:700; }
           <a href="/admin/orders">📑 Orders</a>
         <% } else { %>
           <a href="/shopping">Home</a>
-          <a href="/favourites">Favourites</a>
+          <a href="/favorites">Favourites</a>
           <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
         <% } %>
         <details class="user-menu">
@@ -165,9 +165,13 @@ th { color:var(--muted); font-weight:700; }
         <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
           <a class="btn" href="/orders">Back to orders</a>
           <a class="btn primary" href="/orders/<%= order.id %>/invoice" target="_blank">Invoice (PDF)</a>
+          <% if ((order.status || '').toLowerCase() === 'completed') { %>
+            <a class="btn" href="/reviews?productId=<%= (items && items[0] && items[0].productId) ? items[0].productId : '' %>">Add review</a>
+          <% } %>
         </div>
       </div>
     </div>
   </div>
 </body>
 </html>
+

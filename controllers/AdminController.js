@@ -19,11 +19,11 @@ const listUsers = (req, res) => {
     });
 };
 
-const changeUserRole = (req, res) => {
+const updateUserInfo = (req, res) => {
     const userId = req.params.id;
-    const { role } = req.body;
-    Admin.updateUserRole(userId, role, (err) => {
-        if (err) return renderError(res, 'Error updating user role', err);
+    const { email, address, contact } = req.body;
+    Admin.updateUserInfo(userId, email, address, contact, (err) => {
+        if (err) return renderError(res, 'Error updating user', err);
         res.redirect('/admin/users');
     });
 };
@@ -46,7 +46,7 @@ const listOrders = (req, res) => {
 module.exports = {
     dashboard,
     listUsers,
-    changeUserRole,
+    updateUserInfo,
     removeUser,
     listOrders
 };

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -54,10 +54,10 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
       </div>
       <div class="nav-links">
         <a href="/shopping">Home</a>
-        <a href="/favourites">Favourites</a>
+        <a href="/favorites">Favourites</a>
         <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
         <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
+          <summary>?? <%= user.username %> ?</summary>
           <div class="dropdown">
             <a href="/account">My Account</a>
             <a href="/orders">My Orders</a>
@@ -114,6 +114,9 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                 <div class="order-actions">
                   <a class="btn" href="/orders/<%= o.id %>">View more</a>
                   <a class="btn primary" href="/orders/<%= o.id %>/invoice" target="_blank">Invoice (PDF)</a>
+                  <% if ((displayStatus || '').toLowerCase() === 'completed') { %>
+                    <a class="btn" href="/reviews?productId=<%= (o.items && o.items[0] && o.items[0].productId) ? o.items[0].productId : '' %>">Add review</a>
+                  <% } %>
                 </div>
               </div>
             </div>
@@ -124,3 +127,4 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
   </div>
 </body>
 </html>
+

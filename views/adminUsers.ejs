@@ -388,7 +388,9 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
               <th>ID</th>
               <th>Username</th>
               <th>Email</th>
-              <th>Role</th>
+              <th>Email</th>
+              <th>Address</th>
+              <th>Contact</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -397,20 +399,16 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
               <tr>
                 <td><%= u.id %></td>
                 <td><%= u.username %></td>
-                <td><%= u.email %></td>
+                <form class="inline-form" action="/admin/users/<%= u.id %>/update" method="POST">
+                  <td><input class="select" style="min-width:220px;" type="email" name="email" value="<%= u.email %>" required></td>
+                  <td><input class="select" style="min-width:220px;" type="text" name="address" value="<%= u.address || '' %>" required></td>
+                  <td><input class="select" style="min-width:140px;" type="text" name="contact" value="<%= u.contact || '' %>" required></td>
                 <td>
-                  <form class="inline-form" action="/admin/users/<%= u.id %>/role" method="POST">
-                    <select class="select" name="role">
-                      <option value="user" <%= u.role === 'user' ? 'selected' : '' %>>User</option>
-                      <option value="admin" <%= u.role === 'admin' ? 'selected' : '' %>>Admin</option>
-                    </select>
                     <button class="pill-action" type="submit">Update</button>
-                  </form>
-                </td>
-                <td>
-                  <form class="inline-form" action="/admin/users/<%= u.id %>/delete" method="POST" onsubmit="return confirm('Delete this user?');">
-                    <button class="pill-action danger" type="submit">Delete</button>
-                  </form>
+                    </form>
+                    <form class="inline-form" action="/admin/users/<%= u.id %>/delete" method="POST" onsubmit="return confirm('Delete this user?');">
+                      <button class="pill-action danger" type="submit">Delete</button>
+                    </form>
                 </td>
               </tr>
             <% }) %>
