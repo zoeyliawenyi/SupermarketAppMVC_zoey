@@ -30,7 +30,7 @@ const updateUserInfo = (userId, email, address, contact, callback) => {
 };
 
 const deleteUser = (userId, callback) => {
-    const sql = 'DELETE FROM users WHERE id = ?';
+    const sql = 'UPDATE users SET role = "deleted" WHERE id = ?';
     db.query(sql, [userId], callback);
 };
 
@@ -39,10 +39,45 @@ const getOrders = (callback) => {
     db.query(sql, callback);
 };
 
+const getRatingSummary = (callback) => {
+    const sql = `
+      SELECT rating, COUNT(*) AS count
+      FROM reviews
+      GROUP BY rating
+    `;
+    db.query(sql, callback);
+};
+
+const getRecentReviews = (callback) => {
+    const sql = `
+      SELECT r.*, u.username, p.productName
+      FROM reviews r
+      LEFT JOIN users u ON u.id = r.userId
+      LEFT JOIN products p ON p.id = r.productId
+      ORDER BY r.created_at DESC, r.id DESC
+      LIMIT 5
+    `;
+    db.query(sql, callback);
+};
+
+const getRecentOrders = (callback) => {
+    const sql = `
+      SELECT o.*, u.username
+      FROM orders o
+      LEFT JOIN users u ON u.id = o.userId
+      ORDER BY o.createdAt DESC, o.id DESC
+      LIMIT 6
+    `;
+    db.query(sql, callback);
+};
+
 module.exports = {
     getDashboardStats,
     getUsers,
     updateUserInfo,
     deleteUser,
-    getOrders
+    getOrders,
+    getRecentOrders,
+    getRecentReviews,
+    getRatingSummary
 };

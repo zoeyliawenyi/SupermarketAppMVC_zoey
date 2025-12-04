@@ -62,12 +62,13 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
         ZozoMart
       </div>
       <div class="nav-links">
-        <a href="/admin/dashboard">📊 Dashboard</a>
-        <a href="/inventory">📦 Inventory</a>
-        <a href="/admin/users">👥 Users</a>
-        <a href="/admin/orders">📑 Orders</a>
+        <a href="/admin/dashboard">Dashboard</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/admin/users">Users</a>
+        <a href="/admin/orders">Orders</a>
+        <a href="/admin/reviews">Reviews</a>
         <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
+          <summary>User: <%= user.username %> ?</summary>
           <div class="dropdown">
             <a href="/logout">Logout</a>
           </div>
@@ -110,8 +111,8 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
           <select class="select" id="sortSelect">
             <option value="date-desc">Newest</option>
             <option value="date-asc">Oldest</option>
-            <option value="total-desc">Total high → low</option>
-            <option value="total-asc">Total low → high</option>
+            <option value="total-desc">Total high ? low</option>
+            <option value="total-asc">Total low ? high</option>
           </select>
         </div>
       </div>
@@ -132,7 +133,10 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
             <tr data-id="<%= o.id %>" data-status="<%= (o.status || '').toLowerCase() %>" data-total="<%= Number(o.total) %>" data-date="<%= o.createdAt ? new Date(o.createdAt).getTime() : 0 %>">
               <td>#<%= o.id %></td>
               <td><%= o.userId || '-' %> <span class="muted" style="display:block;"><%= o.username || '' %></span></td>
-              <td><span class="status-badge" data-status="<%= (o.status || 'placed').toLowerCase() %>"><%= o.status || 'placed' %></span></td>
+              <td>
+                <% const statusLabel = (o.userRole === 'deleted') ? 'deleted user' : (o.status || 'placed'); %>
+                <span class="status-badge" data-status="<%= statusLabel.toLowerCase() %>"><%= statusLabel %></span>
+              </td>
               <td>$ <%= Number(o.total).toFixed(2) %></td>
               <td><%= o.createdAt ? (o.createdAt.toLocaleString ? o.createdAt.toLocaleString() : o.createdAt) : '-' %></td>
               <td class="actions">
@@ -165,6 +169,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
         'ready for pickup': '#d6c8ff',
         'out for delivery': '#c8f0df',
         'completed': '#bde7f5',
+        'deleted user': '#e5e7eb'
       };
 
       // Sales chart (last 6 months based on most recent order)
@@ -204,11 +209,11 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 
       // Status chart
       const statusCtx = document.getElementById('statusChart');
-      const legendStatuses = ['payment successful','payment failed','packing','ready for pickup','out for delivery','completed'];
+      const legendStatuses = ['payment successful','payment failed','packing','ready for pickup','out for delivery','completed','deleted user'];
       const counts = {};
       legendStatuses.forEach(s => counts[s] = 0);
       orders.forEach(o => {
-        const s = (o.status || 'placed').toLowerCase();
+        const s = (o.userRole === 'deleted') ? 'deleted user' : (o.status || 'placed').toLowerCase();
         if (counts.hasOwnProperty(s)) counts[s] += 1;
       });
       const statusLabels = legendStatuses;

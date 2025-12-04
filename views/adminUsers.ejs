@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -362,16 +362,18 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         ZozoMart
       </div>
             <div class="nav-links">
-        <a href="/admin/dashboard">📊 Dashboard</a>
-        <a href="/inventory">📦 Inventory</a>
-        <a href="/admin/users">👥 Users</a>
-        <a href="/admin/orders">📑 Orders</a>
+        <a href="/admin/dashboard">Dashboard</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/admin/users">Users</a>
+        <a href="/admin/orders">Orders</a>
+        <a href="/admin/reviews">Reviews</a>
         <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
+          <summary>User: <%= user.username %> ?</summary>
           <div class="dropdown">
             <a href="/logout">Logout</a>
           </div>
         </details>
+      </div>
       </div>
       </div>
     </nav>
@@ -388,9 +390,9 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
               <th>ID</th>
               <th>Username</th>
               <th>Email</th>
-              <th>Email</th>
               <th>Address</th>
               <th>Contact</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -400,14 +402,19 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
                 <td><%= u.id %></td>
                 <td><%= u.username %></td>
                 <form class="inline-form" action="/admin/users/<%= u.id %>/update" method="POST">
-                  <td><input class="select" style="min-width:220px;" type="email" name="email" value="<%= u.email %>" required></td>
-                  <td><input class="select" style="min-width:220px;" type="text" name="address" value="<%= u.address || '' %>" required></td>
-                  <td><input class="select" style="min-width:140px;" type="text" name="contact" value="<%= u.contact || '' %>" required></td>
+                  <td><input class="select" style="min-width:220px;" type="email" name="email" value="<%= u.email %>" required <%= u.role === 'deleted' ? 'readonly' : '' %>></td>
+                  <td><input class="select" style="min-width:220px;" type="text" name="address" value="<%= u.address || '' %>" required <%= u.role === 'deleted' ? 'readonly' : '' %>></td>
+                  <td><input class="select" style="min-width:140px;" type="text" name="contact" value="<%= u.contact || '' %>" required <%= u.role === 'deleted' ? 'readonly' : '' %>></td>
+                  <td>
+                    <span class="pill-badge" style="background:<%= u.role === 'deleted' ? '#fee2e2' : '#e0f2fe' %>; color:<%= u.role === 'deleted' ? '#b91c1c' : '#0f172a' %>;">
+                      <%= u.role === 'deleted' ? 'deleted' : 'active' %>
+                    </span>
+                  </td>
                 <td>
-                    <button class="pill-action" type="submit">Update</button>
+                    <button class="pill-action" type="submit" <%= u.role === 'deleted' ? 'disabled' : '' %>>Update</button>
                     </form>
-                    <form class="inline-form" action="/admin/users/<%= u.id %>/delete" method="POST" onsubmit="return confirm('Delete this user?');">
-                      <button class="pill-action danger" type="submit">Delete</button>
+                    <form class="inline-form" action="/admin/users/<%= u.id %>/delete" method="POST" onsubmit="return confirm('Mark this user as deleted?');">
+                      <button class="pill-action danger" type="submit" <%= u.role === 'deleted' ? 'disabled' : '' %>>Delete</button>
                     </form>
                 </td>
               </tr>
@@ -419,7 +426,6 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   </div>
 </body>
 </html>
-
 
 
 

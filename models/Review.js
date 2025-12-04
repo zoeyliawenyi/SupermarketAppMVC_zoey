@@ -14,6 +14,24 @@ const Review = {
       ORDER BY r.created_at DESC, r.id DESC
     `;
     db.query(sql, [userId], cb);
+  },
+  listAll(cb) {
+    const sql = `
+      SELECT r.*, u.username, u.role AS userRole, p.productName, p.image
+      FROM reviews r
+      LEFT JOIN users u ON u.id = r.userId
+      LEFT JOIN products p ON p.id = r.productId
+      ORDER BY r.created_at DESC, r.id DESC
+    `;
+    db.query(sql, cb);
+  },
+  update(id, { rating, comment }, cb) {
+    const sql = 'UPDATE reviews SET rating = ?, comment = ? WHERE id = ?';
+    db.query(sql, [rating, comment, id], cb);
+  },
+  remove(id, cb) {
+    const sql = 'DELETE FROM reviews WHERE id = ?';
+    db.query(sql, [id], cb);
   }
 };
 

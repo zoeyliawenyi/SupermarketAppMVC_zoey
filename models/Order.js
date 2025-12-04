@@ -43,7 +43,7 @@ const Order = {
   },
 
   findAll: (cb) => {
-    const sql = 'SELECT o.*, u.username FROM orders o LEFT JOIN users u ON o.userId = u.id ORDER BY o.createdAt DESC';
+    const sql = 'SELECT o.*, u.username, u.role AS userRole FROM orders o LEFT JOIN users u ON o.userId = u.id ORDER BY o.createdAt DESC';
     connection.query(sql, cb);
   },
 

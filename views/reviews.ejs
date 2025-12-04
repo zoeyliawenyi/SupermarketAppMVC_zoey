@@ -52,39 +52,6 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
       </div>
     </nav>
 
-    <div class="card">
-      <h2 style="margin:0 0 8px;">Leave a review</h2>
-      <p class="muted" style="margin:0 0 12px;">Share your feedback on products from your completed orders.</p>
-      <% if (errors && errors.length) { %>
-        <% errors.forEach(function(err){ %><div class="muted" style="color:#b91c1c;"><%= err %></div><% }) %>
-      <% } %>
-      <% if (messages && messages.length) { %>
-        <% messages.forEach(function(m){ %><div class="muted" style="color:#166534;"><%= m %></div><% }) %>
-      <% } %>
-      <form action="/reviews" method="POST" style="display:grid; gap:12px; margin-top:8px;">
-        <div class="form-grid">
-          <label>Product ID
-            <input class="input" type="number" name="productId" min="1" value="<%= selectedProductId || '' %>" required style="max-width:160px;">
-          </label>
-          <label>Rating
-            <div class="stars-input" style="display:flex; gap:6px; align-items:center; padding:6px 0;">
-              <% for (let s = 1; s <= 5; s++) { %>
-                <label style="cursor:pointer;">
-                  <input type="radio" name="rating" value="<%= s %>" style="display:none;">
-                  <span class="star" data-value="<%= s %>" style="font-size:22px; color:#d1d5db;">☆</span>
-                </label>
-              <% } %>
-              <span class="muted" style="font-size:12px;" id="starCount"></span>
-            </div>
-          </label>
-        </div>
-        <label>Comment
-          <textarea name="comment" rows="3" class="input" placeholder="What did you think?"></textarea>
-        </label>
-        <button class="cta" type="submit">Submit review</button>
-      </form>
-    </div>
-
     <div class="card" style="margin-top:12px;">
       <h3 style="margin:0 0 8px;">Your reviews</h3>
       <% if (!reviews || !reviews.length) { %>
@@ -106,31 +73,4 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
     </div>
   </div>
 </body>
-<script>
-  (function(){
-    const stars = Array.from(document.querySelectorAll('.stars-input .star'));
-    const counter = document.getElementById('starCount');
-    const select = (val) => {
-      stars.forEach(st => {
-        const v = Number(st.dataset.value);
-        if (v <= val) {
-          st.textContent = '★';
-          st.classList.add('active');
-        } else {
-          st.textContent = '☆';
-          st.classList.remove('active');
-        }
-      });
-      counter.textContent = val ? `${val} / 5` : '';
-    };
-    stars.forEach(st => {
-      st.addEventListener('click', () => {
-        const val = Number(st.dataset.value);
-        const radio = st.previousElementSibling;
-        if (radio) radio.checked = true;
-        select(val);
-      });
-    });
-  })();
-</script>
 </html>

@@ -4,25 +4,40 @@ const db = require('../db');
 const list = (req, res) => {
   const userId = req.session.user.id;
   const selectedProductId = req.query.productId || '';
+  const sendView = (reviews, productInfo=null) => {
+    res.render('reviews', {
+      user: req.session.user,
+      reviews: reviews || [],
+      selectedProductId,
+      productInfo,
+      messages: req.flash('success'),
+      errors: req.flash('error')
+    });
+  };
+
   Review.listByUser(userId, (err, reviews) => {
     if (err) {
       console.error('DB error /reviews list:', err);
       return res.status(500).send('Database error');
     }
-    res.render('reviews', {
-      user: req.session.user,
-      reviews: reviews || [],
-      selectedProductId,
-      messages: req.flash('success'),
-      errors: req.flash('error')
-    });
+    if (selectedProductId) {
+      db.query('SELECT id, productName, image FROM products WHERE id = ? LIMIT 1', [selectedProductId], (pErr, rows) => {
+        if (pErr) {
+          console.error('DB error loading product for review:', pErr);
+          return sendView(reviews, null);
+        }
+        sendView(reviews, rows && rows[0] ? rows[0] : null);
+      });
+    } else {
+      sendView(reviews, null);
+    }
   });
 };
 
 const create = (req, res) => {
   const userId = req.session.user.id;
   const { productId, rating, comment } = req.body;
-  const redirectTarget = `/reviews${productId ? `?productId=${productId}` : ''}`;
+  const redirectTarget = '/shopping';
   if (!productId || !rating) {
     req.flash('error', 'Product and rating are required');
     return res.redirect(redirectTarget);

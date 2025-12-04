@@ -116,6 +116,7 @@ th { color:var(--muted); font-weight:700; }
               <th>Qty</th>
               <th>Price</th>
               <th>Subtotal</th>
+              <% if ((order.status || '').toLowerCase() === 'completed') { %><th>Review</th><% } %>
             </tr>
           </thead>
           <tbody>
@@ -124,17 +125,20 @@ th { color:var(--muted); font-weight:700; }
             <% } else { %>
               <% items.forEach(function(it){ %>
                 <tr>
-                  <td style="display:flex; align-items:center; gap:8px;">
-                    <% const imgSrc = it.productImage ? '/images/' + it.productImage : (order.firstImage ? '/images/' + order.firstImage : '/images/placeholder.png'); %>
-                    <img src="<%= imgSrc %>" alt="<%= it.productName || 'item' %>" style="width:42px; height:42px; border-radius:10px; border:1px solid var(--border); object-fit:cover; background:#f3f4f6;">
-                    <span><%= it.productName || ('Item #' + it.productId) %></span>
-                  </td>
-                  <td><%= it.quantity %></td>
-                  <td>$<%= Number(it.price).toFixed(2) %></td>
-                  <td>$<%= (Number(it.price)*Number(it.quantity)).toFixed(2) %></td>
-                </tr>
-              <% }) %>
-            <% } %>
+                <td style="display:flex; align-items:center; gap:8px;">
+                  <% const imgSrc = it.productImage ? '/images/' + it.productImage : (order.firstImage ? '/images/' + order.firstImage : '/images/placeholder.png'); %>
+                  <img src="<%= imgSrc %>" alt="<%= it.productName || 'item' %>" style="width:42px; height:42px; border-radius:10px; border:1px solid var(--border); object-fit:cover; background:#f3f4f6;">
+                  <span><%= it.productName || ('Item #' + it.productId) %></span>
+                </td>
+                <td><%= it.quantity %></td>
+                <td>$<%= Number(it.price).toFixed(2) %></td>
+                <td>$<%= (Number(it.price)*Number(it.quantity)).toFixed(2) %></td>
+                <% if ((order.status || '').toLowerCase() === 'completed') { %>
+                  <td><a class="btn" href="/reviews?productId=<%= it.productId %>">Add review</a></td>
+                <% } %>
+              </tr>
+            <% }) %>
+          <% } %>
             <tr>
               <td colspan="3" style="text-align:right; font-weight:700;">Items subtotal</td>
               <td>$<%= itemsSubtotal.toFixed(2) %></td>

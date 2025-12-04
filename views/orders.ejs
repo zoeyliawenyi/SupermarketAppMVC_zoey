@@ -54,13 +54,14 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
       </div>
       <div class="nav-links">
         <a href="/shopping">Home</a>
-        <a href="/favorites">Favourites</a>
+        <a href="/favorites">Favorites</a>
         <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
         <details class="user-menu">
-          <summary>?? <%= user.username %> ?</summary>
+          <summary>👤 <%= user.username %> ▾</summary>
           <div class="dropdown">
             <a href="/account">My Account</a>
             <a href="/orders">My Orders</a>
+            <a href="/reviews">My Reviews</a>
             <a href="/logout">Logout</a>
           </div>
         </details>
@@ -115,7 +116,15 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                   <a class="btn" href="/orders/<%= o.id %>">View more</a>
                   <a class="btn primary" href="/orders/<%= o.id %>/invoice" target="_blank">Invoice (PDF)</a>
                   <% if ((displayStatus || '').toLowerCase() === 'completed') { %>
-                    <a class="btn" href="/reviews?productId=<%= (o.items && o.items[0] && o.items[0].productId) ? o.items[0].productId : '' %>">Add review</a>
+                    <% if (items && items.length > 1) { %>
+                      <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+                        <% items.forEach(function(it){ %>
+                          <a class="btn" style="font-size:12px;" href="/reviews?productId=<%= it.productId %>">Review <%= it.productName || ('Item ' + it.productId) %></a>
+                        <% }) %>
+                      </div>
+                    <% } else { %>
+                      <a class="btn" href="/reviews?productId=<%= (items && items[0] && items[0].productId) ? items[0].productId : '' %>">Add review</a>
+                    <% } %>
                   <% } %>
                 </div>
               </div>

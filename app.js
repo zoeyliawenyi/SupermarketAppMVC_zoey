@@ -8,6 +8,7 @@ const adminController = require('./controllers/AdminController');
 const orderController = require('./controllers/OrderController');
 const favoriteController = require('./controllers/FavoriteController');
 const reviewController = require('./controllers/ReviewController');
+const adminReviewController = require('./controllers/AdminReviewController');
 const Order = require('./models/Order');
 const OrderItem = require('./models/OrderItem');
 
@@ -121,6 +122,9 @@ app.post('/admin/users/:id/delete', checkAuthenticated, checkAdmin, adminControl
 app.get('/admin/orders', checkAuthenticated, checkAdmin, orderController.listAll);
 app.post('/admin/orders/:id/status', checkAuthenticated, checkAdmin, orderController.updateStatus);
 app.get('/admin/orders/:id/invoice', checkAuthenticated, checkAdmin, orderController.invoice);
+app.get('/admin/reviews', checkAuthenticated, checkAdmin, adminReviewController.list);
+app.post('/admin/reviews/:id/update', checkAuthenticated, checkAdmin, adminReviewController.update);
+app.post('/admin/reviews/:id/delete', checkAuthenticated, checkAdmin, adminReviewController.remove);
 
 // Forgot password
 app.get('/forgot-password', (req, res) => {

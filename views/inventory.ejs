@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -485,23 +485,23 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
 </head>
 <body>
   <div class="shell">
-            <nav class="nav">
+    <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
         ZozoMart
       </div>
-            <div class="nav-links">
-        <a href="/admin/dashboard">📊 Dashboard</a>
-        <a href="/inventory">📦 Inventory</a>
-        <a href="/admin/users">👥 Users</a>
-        <a href="/admin/orders">📑 Orders</a>
+      <div class="nav-links">
+        <a href="/admin/dashboard">Dashboard</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/admin/users">Users</a>
+        <a href="/admin/orders">Orders</a>
+        <a href="/admin/reviews">Reviews</a>
         <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
+          <summary>?? <%= user.username %> ?</summary>
           <div class="dropdown">
             <a href="/logout">Logout</a>
           </div>
         </details>
-      </div>
       </div>
     </nav>
 
@@ -545,11 +545,11 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
           <div class="filter-label">Sort</div>
           <div class="filter-field">
             <select id="sortSelect">
-              <option value="name-asc">Name A → Z</option>
-              <option value="name-desc">Name Z → A</option>
-              <option value="stock-desc">Stock high → low</option>
-              <option value="price-asc">Price low → high</option>
-              <option value="price-desc">Price high → low</option>
+              <option value="name-asc">Name A > Z</option>
+              <option value="name-desc">Name Z > A</option>
+              <option value="stock-desc">Stock high > low</option>
+              <option value="price-asc">Price low > high</option>
+              <option value="price-desc">Price high > low</option>
             </select>
           </div>
         </div>
@@ -588,9 +588,9 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
                 </form>
               </td>
               <td>$ <%= Number(p.price).toFixed(2) %></td>
-              <td><%= p.category || "—" %></td>
-              <td><%= p.description || "—" %></td>
-              <td><%= p.dietary || "—" %></td>
+              <td><%= p.category || "�" %></td>
+              <td><%= p.description || "�" %></td>
+              <td><%= p.dietary || "�" %></td>
               <td><a class="pill-action" href="/editProduct/<%= p.id %>">Edit</a></td>
               <td><a class="pill-action danger" href="/deleteProduct/<%= p.id %>" onclick="return confirm('Delete this product?')">Delete</a></td>
             </tr>

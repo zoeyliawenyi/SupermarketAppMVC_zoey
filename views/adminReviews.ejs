@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Reviews</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+:root {
+  --bg:#ffffff;
+  --card:#ffffff;
+  --text:#111827;
+  --muted:#6b7280;
+  --border:#e5e7eb;
+  --shadow:0 12px 30px rgba(17,24,39,0.08);
+  --radius:14px;
+  --pink:#f8cde5;
+  --blue:#c8d9ff;
+  --purple:#d6c8ff;
+}
+*{box-sizing:border-box;}
+body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle at 20% 20%, rgba(255,92,138,0.08), transparent 35%),radial-gradient(circle at 80% 10%, rgba(255,143,177,0.12), transparent 32%),linear-gradient(135deg,#ffffff,#fdf3f7 45%,#ffffff);color:var(--text);}
+.shell{max-width:1200px;margin:0 auto;padding:24px;}
+.nav{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--border);border-radius:12px;padding:12px 18px;box-shadow:var(--shadow);}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;}
+.brand .dot{width:12px;height:12px;border-radius:50%;background:linear-gradient(135deg,#ff5c8a,#ff8fb1);box-shadow:0 0 10px rgba(255,92,138,0.6);}
+.nav-links{display:flex;gap:12px;align-items:center;flex-wrap:wrap;}
+.nav-links a{padding:8px 12px;border-radius:10px;color:var(--text);font-weight:500;text-decoration:none;}
+.nav-links a:hover{background:rgba(255,92,138,0.08);}
+.user-menu{position:relative;}
+.user-menu summary{list-style:none;cursor:pointer;padding:8px 12px;border-radius:10px;}
+.user-menu[open] summary,.user-menu summary:hover{background:rgba(255,92,138,0.08);}
+.user-menu .dropdown{position:absolute;right:0;top:110%;background:#fff;border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);min-width:140px;padding:8px 0;z-index:20;}
+.user-menu .dropdown a{display:block;padding:8px 12px;color:var(--text);text-decoration:none;}
+.user-menu .dropdown a:hover{background:rgba(255,92,138,0.08);}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px;}
+.table{width:100%;border-collapse:collapse;}
+.table th,.table td{padding:10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:middle;}
+.muted{color:var(--muted);}
+.badge{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px;background:var(--blue);}
+.input{padding:8px 10px;border:1px solid var(--border);border-radius:8px;min-width:60px;}
+.textarea{padding:8px 10px;border:1px solid var(--border);border-radius:8px;width:100%;resize:vertical;}
+.actions{display:flex;gap:6px;flex-wrap:wrap;}
+.btn{padding:8px 12px;border-radius:10px;border:1px solid var(--border);cursor:pointer;background:#fff;}
+.btn.primary{background:linear-gradient(135deg,#f11d92,#fb7da7);color:#fff;border:none;}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand">
+        <span class="dot"></span>
+        ZozoMart
+      </div>
+      <div class="nav-links">
+        <a href="/admin/dashboard">Dashboard</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/admin/users">Users</a>
+        <a href="/admin/orders">Orders</a>
+        <a href="/admin/reviews">Reviews</a>
+        <details class="user-menu">
+          <summary>👤 <%= user.username %> ▾</summary>
+          <div class="dropdown">
+            <a href="/logout">Logout</a>
+          </div>
+        </details>
+      </div>
+    </nav>
+
+    <div style="margin-top:16px;" class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 style="margin:0;">Reviews</h2>
+          <p class="muted" style="margin:4px 0 0;">Inspect, edit, or delete user reviews.</p>
+        </div>
+      </div>
+      <table class="table" style="margin-top:12px;">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Product</th>
+            <th>Rating</th>
+            <th>Comment</th>
+            <th>Created</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% (reviews || []).forEach(function(r){ %>
+            <tr>
+              <td>#<%= r.id %></td>
+              <td><%= r.username || ('User '+ (r.userId||'')) %> <span class="muted" style="display:block;"><%= r.userRole === 'deleted' ? 'deleted user' : '' %></span></td>
+              <td><%= r.productName || ('Product ' + (r.productId||'')) %></td>
+              <td>
+                <form action="/admin/reviews/<%= r.id %>/update" method="POST" class="actions">
+                  <input class="input" type="number" name="rating" min="1" max="5" value="<%= r.rating %>" required>
+                  <textarea class="textarea" name="comment" rows="2"><%= r.comment || '' %></textarea>
+                  <button class="btn primary" type="submit">Update</button>
+                </form>
+              </td>
+              <td><%= r.comment || '' %></td>
+              <td class="muted"><%= r.created_at || r.createdAt || '' %></td>
+              <td>
+                <form action="/admin/reviews/<%= r.id %>/delete" method="POST">
+                  <button class="btn" type="submit">Delete</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>

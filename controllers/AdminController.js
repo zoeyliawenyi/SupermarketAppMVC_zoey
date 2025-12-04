@@ -8,7 +8,19 @@ const renderError = (res, message, err) => {
 const dashboard = (req, res) => {
     Admin.getDashboardStats((err, stats) => {
         if (err) return renderError(res, 'Error loading dashboard data', err);
-        res.render('adminDashboard', { user: req.session.user, stats });
+        Admin.getRecentOrders((orderErr, orders) => {
+            if (orderErr) return renderError(res, 'Error loading recent orders', orderErr);
+            Admin.getRecentReviews((reviewErr, reviews) => {
+                if (reviewErr) return renderError(res, 'Error loading recent reviews', reviewErr);
+                Admin.getRatingSummary((ratingErr, ratingRows) => {
+                    if (ratingErr) return renderError(res, 'Error loading ratings summary', ratingErr);
+                    stats.recentOrders = orders || [];
+                    stats.recentReviews = reviews || [];
+                    stats.ratingSummary = ratingRows || [];
+                    res.render('adminDashboard', { user: req.session.user, stats });
+                });
+            });
+        });
     });
 };
 
