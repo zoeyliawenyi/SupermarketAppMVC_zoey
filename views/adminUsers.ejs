@@ -356,25 +356,24 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
 </head>
 <body>
   <div class="shell">
-            <nav class="nav">
+  <div class="shell">
+    <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
         ZozoMart
       </div>
-            <div class="nav-links">
+      <div class="nav-links">
         <a href="/admin/dashboard">Dashboard</a>
         <a href="/inventory">Inventory</a>
         <a href="/admin/users">Users</a>
         <a href="/admin/orders">Orders</a>
         <a href="/admin/reviews">Reviews</a>
         <details class="user-menu">
-          <summary>User: <%= user.username %> ?</summary>
+          <summary>👤 <%= user.username %> ▾</summary>
           <div class="dropdown">
             <a href="/logout">Logout</a>
           </div>
         </details>
-      </div>
-      </div>
       </div>
     </nav>
 

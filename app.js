@@ -525,6 +525,12 @@ app.post('/checkout/payment', checkAuthenticated, (req, res) => {
 
 app.post('/place-order', checkAuthenticated, (req, res) => {
     const cart = req.session.cart || [];
+    const sel = Array.isArray(req.session.checkoutSelection) ? req.session.checkoutSelection.map(n=>Number(n)) : [];
+    const cartForOrder = sel.length ? cart.filter(item => sel.includes(Number(item.productId))) : cart;
+    if (!cartForOrder.length) {
+        req.flash('error', 'No items selected for checkout');
+        return res.redirect('/cart');
+    }
     if (!cart.length) {
         req.flash('error', 'Your cart is empty');
         return res.redirect('/cart');
@@ -540,8 +546,8 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
     // persist latest shipping snapshot so it is available if user returns after a failure
     req.session.checkoutShipping = shipping;
     const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const totalQuantity = cart.reduce((sum, item) => sum + (item.quantity || 0), 0);
+    const subtotal = cartForOrder.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const totalQuantity = cartForOrder.reduce((sum, item) => sum + (item.quantity || 0), 0);
     const total = subtotal + shippingCost;
 
     const paymentMethod = req.body.paymentMethod || shipping.payment || 'paynow';
@@ -580,16 +586,16 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
             return res.redirect('/cart');
         }
         // persist items to order_items if table exists
-        OrderItem.createMany(orderId, cart, (itemErr) => {
+        OrderItem.createMany(orderId, cartForOrder, (itemErr) => {
             if (itemErr) {
                 console.error('DB error inserting order_items:', itemErr);
             }
         });
         const adjustStock = (done) => {
             if (status === 'payment failed') return done();
-            let pending = cart.length;
+            let pending = cartForOrder.length;
             if (!pending) return done();
-            cart.forEach(it => {
+            cartForOrder.forEach(it => {
                 const qty = Number(it.quantity) || 0;
                 if (!qty) {
                     if (--pending === 0) done();
@@ -603,7 +609,7 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
         };
         req.session.lastOrder = {
             id: orderId,
-            items: cart,
+            items: cartForOrder,
             shipping,
             subtotal,
             shippingCost,
@@ -613,12 +619,13 @@ app.post('/place-order', checkAuthenticated, (req, res) => {
         };
         if (!req.session.orderSummary) req.session.orderSummary = {};
         req.session.orderSummary[orderId] = {
-            image: cart[0] ? cart[0].image : null,
+            image: cartForOrder[0] ? cartForOrder[0].image : null,
             qty: totalQuantity
         };
         // keep lastOrder populated so immediate redirect pages can show items
         req.session.lastOrder = req.session.lastOrder || {};
-        req.session.lastOrder.items = cart;
+        req.session.lastOrder.items = cartForOrder;
+        req.session.checkoutSelection = [];
         req.session.lastOrder.totalQuantity = totalQuantity;
         const goSuccess = () => {
             req.session.cardDraft = null;
@@ -682,7 +689,7 @@ app.get('/product/:id', checkAuthenticated, (req, res) => {
       if (!results.length) return res.status(404).send('Product not found');
       const product = results[0];
       connection.query(
-        'SELECT r.*, u.username FROM reviews r LEFT JOIN users u ON u.id = r.userId WHERE r.productId = ? ORDER BY r.created_at DESC, r.id DESC',
+        'SELECT r.*, IFNULL(r.reply, \"\") AS reply, u.username FROM reviews r LEFT JOIN users u ON u.id = r.userId WHERE r.productId = ? ORDER BY r.created_at DESC, r.id DESC',
         [productId],
         (revErr, reviewRows) => {
           if (revErr) {

@@ -34,17 +34,21 @@ th { color:var(--muted); font-weight:700; }
 </head>
 <body>
   <div class="shell">
+  <div class="shell">
     <nav class="nav">
-      <div class="brand"><span class="dot"></span>ZozoMart</div>
+      <div class="brand">
+        <span class="dot"></span>
+        ZozoMart
+      </div>
       <div class="nav-links">
-        <a href="/admin/dashboard">📊 Dashboard</a>
-        <a href="/inventory">📦 Inventory</a>
-        <a href="/admin/users">👥 Users</a>
-        <a href="/admin/orders">📑 Orders</a>
+        <a href="/admin/dashboard">Dashboard</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/admin/users">Users</a>
+        <a href="/admin/orders">Orders</a>
+        <a href="/admin/reviews">Reviews</a>
         <details class="user-menu">
           <summary>👤 <%= user.username %> ▾</summary>
           <div class="dropdown">
-            <a href="/admin/orders">Orders</a>
             <a href="/logout">Logout</a>
           </div>
         </details>

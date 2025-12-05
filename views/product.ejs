@@ -495,6 +495,11 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
                 <% } %>
               </div>
               <div class="muted"><%= r.comment || '' %></div>
+              <% if (r.reply) { %>
+                <div class="muted" style="margin-top:6px; padding:8px; border:1px solid var(--border); border-radius:10px; background:#f8fafc;">
+                  <strong>Admin reply:</strong> <%= r.reply %>
+                </div>
+              <% } %>
             </div>
           <% }) %>
         </div>

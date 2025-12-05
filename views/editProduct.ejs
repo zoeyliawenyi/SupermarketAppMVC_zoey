@@ -182,16 +182,18 @@ a:hover { color: #ff3d77; }
 </head>
 <body>
   <div class="shell">
-            <nav class="nav">
+  <div class="shell">
+    <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
         ZozoMart
       </div>
-            <div class="nav-links">
-        <a href="/admin/dashboard">📊 Dashboard</a>
-        <a href="/inventory">📦 Inventory</a>
-        <a href="/admin/users">👥 Users</a>
-        <a href="/admin/orders">📑 Orders</a>
+      <div class="nav-links">
+        <a href="/admin/dashboard">Dashboard</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/admin/users">Users</a>
+        <a href="/admin/orders">Orders</a>
+        <a href="/admin/reviews">Reviews</a>
         <details class="user-menu">
           <summary>👤 <%= user.username %> ▾</summary>
           <div class="dropdown">
@@ -199,8 +201,8 @@ a:hover { color: #ff3d77; }
           </div>
         </details>
       </div>
-      </div>
     </nav>
+       
 
     <div class="hero-card" style="margin-top:20px;">
       <div class="section-head">

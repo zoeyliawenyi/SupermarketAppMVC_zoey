@@ -71,17 +71,15 @@ body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle
         <a href="/admin/users">Users</a>
         <a href="/admin/orders">Orders</a>
         <a href="/admin/reviews">Reviews</a>
-        <% if (stats.lowStock && stats.lowStock.length) { %>
-          <a href="#lowstock" class="pill" style="padding:8px 12px;">Low stock (<%= stats.lowStock.length %>)</a>
-        <% } %>
         <details class="user-menu">
-          <summary>?? <%= user.username %> ?</summary>
+          <summary>👤 <%= user.username %> ▾</summary>
           <div class="dropdown">
             <a href="/logout">Logout</a>
           </div>
         </details>
       </div>
     </nav>
+
 
     <div class="section-head">
       <div>

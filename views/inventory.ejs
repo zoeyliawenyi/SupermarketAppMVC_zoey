@@ -485,6 +485,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
 </head>
 <body>
   <div class="shell">
+  <div class="shell">
     <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
@@ -497,13 +498,14 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         <a href="/admin/orders">Orders</a>
         <a href="/admin/reviews">Reviews</a>
         <details class="user-menu">
-          <summary>?? <%= user.username %> ?</summary>
+          <summary>👤 <%= user.username %> ▾</summary>
           <div class="dropdown">
             <a href="/logout">Logout</a>
           </div>
         </details>
       </div>
     </nav>
+
 
     <div class="hero-card" style="margin-top:20px;">
       <div class="section-head">
