@@ -400,11 +400,28 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
             <% users.forEach(function(u) { %>
               <tr>
                 <td><%= u.id %></td>
-                <td><%= u.username %></td>
+                <td>
+                  <div><%= u.username %></div>
+                  <% if (u.role === 'deleted') { %>
+                    <div class="muted" style="font-size:12px;">deleted user</div>
+                  <% } %>
+                </td>
                 <form class="inline-form" action="/admin/users/<%= u.id %>/update" method="POST">
-                  <td><input class="select" style="min-width:220px;" type="email" name="email" value="<%= u.email %>" required <%= u.role === 'deleted' ? 'readonly' : '' %>></td>
-                  <td><input class="select" style="min-width:220px;" type="text" name="address" value="<%= u.address || '' %>" required <%= u.role === 'deleted' ? 'readonly' : '' %>></td>
-                  <td><input class="select" style="min-width:140px;" type="text" name="contact" value="<%= u.contact || '' %>" required <%= u.role === 'deleted' ? 'readonly' : '' %>></td>
+                <td>
+                  <input class="select" style="min-width:220px;" type="email" name="email"
+                    value="<%= u.role === 'deleted' ? 'deleted' : u.email %>"
+                    <%= u.role === 'deleted' ? 'readonly' : 'required' %>>
+                </td>
+                  <td>
+                    <input class="select" style="min-width:220px;" type="text" name="address"
+                      value="<%= u.role === 'deleted' ? 'deleted' : (u.address || '') %>"
+                      <%= u.role === 'deleted' ? 'readonly' : 'required' %>>
+                  </td>
+                  <td>
+                    <input class="select" style="min-width:140px;" type="text" name="contact"
+                      value="<%= u.role === 'deleted' ? 'deleted' : (u.contact || '') %>"
+                      <%= u.role === 'deleted' ? 'readonly' : 'required' %>>
+                  </td>
                   <td>
                     <span class="pill-badge" style="background:<%= u.role === 'deleted' ? '#fee2e2' : '#e0f2fe' %>; color:<%= u.role === 'deleted' ? '#b91c1c' : '#0f172a' %>;">
                       <%= u.role === 'deleted' ? 'deleted' : 'active' %>
@@ -413,9 +430,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
                 <td>
                     <button class="pill-action" type="submit" <%= u.role === 'deleted' ? 'disabled' : '' %>>Update</button>
                     </form>
-                    <form class="inline-form" action="/admin/users/<%= u.id %>/delete" method="POST" onsubmit="return confirm('Mark this user as deleted?');">
-                      <button class="pill-action danger" type="submit" <%= u.role === 'deleted' ? 'disabled' : '' %>>Delete</button>
-                    </form>
+                    
                 </td>
               </tr>
             <% }) %>

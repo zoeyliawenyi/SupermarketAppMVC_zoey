@@ -21,7 +21,7 @@ const list = (req, res) => {
       return res.status(500).send('Database error');
     }
     if (selectedProductId) {
-      db.query('SELECT id, productName, image FROM products WHERE id = ? LIMIT 1', [selectedProductId], (pErr, rows) => {
+      Review.getProductInfo(selectedProductId, (pErr, rows) => {
         if (pErr) {
           console.error('DB error loading product for review:', pErr);
           return sendView(reviews, null);

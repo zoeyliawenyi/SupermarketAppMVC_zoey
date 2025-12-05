@@ -37,6 +37,22 @@ app.use(express.urlencoded({
 }));
 // enable json body parsing (for AJAX like favorites toggle)
 app.use(express.json());
+// simple cookie reader (avoids extra dependency)
+app.use((req, res, next) => {
+    req.cookies = {};
+    const raw = req.headers.cookie || '';
+    raw.split(';').forEach(part => {
+        const [k, v] = part.split('=');
+        if (!k || v === undefined) return;
+        try { req.cookies[k.trim()] = decodeURIComponent(v.trim()); } catch (e) { req.cookies[k.trim()] = v.trim(); }
+    });
+    res.setClientCookie = (name, value, opts = {}) => {
+        const maxAge = opts.maxAge || (7 * 24 * 60 * 60 * 1000);
+        const cookie = `${name}=${encodeURIComponent(value)}; Max-Age=${Math.floor(maxAge/1000)}; Path=/`;
+        res.append('Set-Cookie', cookie);
+    };
+    next();
+});
 
 //TO DO: Insert code for Session Middleware below 
 app.use(session({
@@ -123,7 +139,7 @@ app.get('/admin/orders', checkAuthenticated, checkAdmin, orderController.listAll
 app.post('/admin/orders/:id/status', checkAuthenticated, checkAdmin, orderController.updateStatus);
 app.get('/admin/orders/:id/invoice', checkAuthenticated, checkAdmin, orderController.invoice);
 app.get('/admin/reviews', checkAuthenticated, checkAdmin, adminReviewController.list);
-app.post('/admin/reviews/:id/update', checkAuthenticated, checkAdmin, adminReviewController.update);
+app.post('/admin/reviews/:id/update', checkAuthenticated, checkAdmin, adminReviewController.reply);
 app.post('/admin/reviews/:id/delete', checkAuthenticated, checkAdmin, adminReviewController.remove);
 
 // Forgot password
@@ -270,7 +286,20 @@ app.post('/login', (req, res) => {
         }
 
         if (results.length > 0) {
+            if ((results[0].role || '').toLowerCase() === 'deleted') {
+                req.flash('error', 'This account has been deleted.');
+                return res.redirect('/login');
+            }
             req.session.user = results[0]; 
+            // restore cart from cookie if exists
+            const savedCart = req.cookies && req.cookies.savedCart;
+            if (savedCart) {
+                try {
+                    const parsed = JSON.parse(savedCart);
+                    if (Array.isArray(parsed)) req.session.cart = parsed;
+                } catch (e) {}
+                res.setClientCookie('savedCart', '', { maxAge: 1 }); // clear
+            }
             req.flash('success', 'Login successful!');
             if(req.session.user.role == 'user')
                 return res.redirect('/shopping');
@@ -422,10 +451,24 @@ app.get('/cart', checkAuthenticated, (req, res) => {
     res.render('cart', { cart, user: req.session.user });
 });
 
+// store selected cart items for checkout
+app.post('/cart/select', checkAuthenticated, (req, res) => {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids : [];
+    const parsed = ids.map(x => parseInt(x, 10)).filter(n => !Number.isNaN(n));
+    req.session.checkoutSelection = parsed;
+    res.json({ success: true });
+});
+
 app.get('/checkout', checkAuthenticated, (req, res) => {
     const cart = req.session.cart || [];
     if (!cart.length) {
         req.flash('error', 'Your cart is empty');
+        return res.redirect('/cart');
+    }
+    const sel = Array.isArray(req.session.checkoutSelection) ? req.session.checkoutSelection : [];
+    const cartForCheckout = sel.length ? cart.filter(item => sel.includes(Number(item.productId))) : cart;
+    if (!cartForCheckout.length) {
+        req.flash('error', 'No items selected for checkout.');
         return res.redirect('/cart');
     }
     const shipping = req.session.checkoutShipping || {
@@ -443,11 +486,11 @@ app.get('/checkout', checkAuthenticated, (req, res) => {
     }
     const cardDraft = req.session.cardDraft || {};
     const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
-    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const totalQuantity = cart.reduce((sum, item) => sum + item.quantity, 0);
+    const subtotal = cartForCheckout.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const totalQuantity = cartForCheckout.reduce((sum, item) => sum + item.quantity, 0);
     const total = subtotal + shippingCost;
     res.render('checkout', {
-        cart,
+        cart: cartForCheckout,
         user: req.session.user,
         shipping,
         cardDraft,
@@ -613,8 +656,12 @@ app.get('/orders/:id', checkAuthenticated, orderController.detail);
 app.get('/orders/:id/invoice', checkAuthenticated, orderController.invoice);
 
 app.get('/logout', (req, res) => {
-    req.session.destroy();
-    res.redirect('/');
+    const cartSnapshot = req.session.cart || [];
+    req.session.destroy(() => {
+        // store in cookie for later restoration
+        res.setClientCookie('savedCart', JSON.stringify(cartSnapshot), { maxAge: 7*24*60*60*1000 });
+        res.redirect('/');
+    });
 });
 
 app.get('/product/:id', checkAuthenticated, (req, res) => {
@@ -760,16 +807,40 @@ app.post('/editProduct/:id', checkAuthenticated, checkAdmin, upload.single('imag
 
 app.get('/deleteProduct/:id', checkAuthenticated, checkAdmin, (req, res) => {
     const productId = req.params.id;
-    
-    connection.query('DELETE FROM products WHERE id = ?', [productId], (error, results) => {
+    // remove dependent rows first to satisfy FK constraints (reviews, favorites, order_items if present)
+    const steps = [
+      ['DELETE FROM reviews WHERE productId = ?', [productId]],
+      ['DELETE FROM favorites WHERE productId = ?', [productId]],
+      ['DELETE FROM order_items WHERE productId = ?', [productId]],
+      ['DELETE FROM products WHERE id = ?', [productId]]
+    ];
+
+    const runStep = (idx) => {
+      if (idx >= steps.length) return res.redirect('/inventory');
+      const [sql, params] = steps[idx];
+      connection.query(sql, params, (error) => {
         if (error) {
-            // Handle any error that occurs during the database operation
-            console.error("Error deleting product:", error);
-            res.status(500).send("Error deleting product");
-        } else {
-            // Send a success response
-            res.redirect('/inventory');
+          console.error("Error deleting product dependency:", error);
+          return res.status(500).send("Error deleting product");
         }
+        runStep(idx + 1);
+      });
+    };
+    runStep(0);
+});
+
+// User self delete (mark as deleted)
+app.post('/account/delete', checkAuthenticated, (req, res) => {
+    const userId = req.session.user.id;
+    connection.query('UPDATE users SET role = "deleted" WHERE id = ?', [userId], (error) => {
+        if (error) {
+            console.error('DB error /account/delete:', error);
+            req.flash('error', 'Could not delete account.');
+            return res.redirect('/account');
+        }
+        req.session.destroy(() => {
+            res.redirect('/login');
+        });
     });
 });
 

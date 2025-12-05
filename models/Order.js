@@ -79,6 +79,29 @@ const Order = {
       }
       cb(null, rows && rows[0] ? rows[0] : null);
     });
+  },
+
+  getProductImages: ({ ids = [], names = [] }, cb) => {
+    const queries = [];
+    if (ids.length) {
+      queries.push(new Promise((resolve, reject) => {
+        connection.query('SELECT id, image FROM products WHERE id IN (?)', [ids], (e, rows) => e ? reject(e) : resolve(rows || []));
+      }));
+    }
+    if (names.length) {
+      queries.push(new Promise((resolve, reject) => {
+        connection.query('SELECT productName, image FROM products WHERE productName IN (?)', [names], (e, rows) => e ? reject(e) : resolve(rows || []));
+      }));
+    }
+    Promise.all(queries).then(results => {
+      const imgsById = {};
+      const imgsByName = {};
+      results.flat().forEach(r => {
+        if (r.id) imgsById[r.id] = r.image;
+        if (r.productName) imgsByName[r.productName.toLowerCase()] = r.image;
+      });
+      cb(null, { imgsById, imgsByName });
+    }).catch(cb);
   }
 };
 

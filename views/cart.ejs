@@ -568,11 +568,21 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       checkAllTop.addEventListener('change', () => toggleAll(checkAllTop.checked));
       checkAllBottom.addEventListener('change', () => toggleAll(checkAllBottom.checked));
 
-      checkoutBtn.addEventListener('click', () => {
+      checkoutBtn.addEventListener('click', async () => {
         const anyChecked = rows.some(r => r.querySelector('.item-check').checked);
         if (!anyChecked) {
           alert('Select at least one item to checkout.');
           return;
+        }
+        const ids = rows.filter(r => r.querySelector('.item-check').checked).map(r => r.dataset.id);
+        try {
+          await fetch('/cart/select', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ids })
+          });
+        } catch (err) {
+          console.error('selection save failed', err);
         }
         window.location.href = '/checkout';
       });

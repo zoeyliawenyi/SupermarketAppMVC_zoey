@@ -71,6 +71,9 @@ body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle
         <a href="/admin/users">Users</a>
         <a href="/admin/orders">Orders</a>
         <a href="/admin/reviews">Reviews</a>
+        <% if (stats.lowStock && stats.lowStock.length) { %>
+          <a href="#lowstock" class="pill" style="padding:8px 12px;">Low stock (<%= stats.lowStock.length %>)</a>
+        <% } %>
         <details class="user-menu">
           <summary>?? <%= user.username %> ?</summary>
           <div class="dropdown">
@@ -109,7 +112,7 @@ body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle
     </div>
 
     <% if (stats.lowStock && stats.lowStock.length) { %>
-    <div class="table-card" style="margin-top:12px; border-left:4px solid #f59e0b;">
+    <div id="lowstock" class="table-card" style="margin-top:12px; border-left:4px solid #f59e0b;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
         <h3 style="margin:0;">Low stock alerts</h3>
         <span class="muted" style="font-weight:600;"><%= stats.lowStock.length %> item(s) below 20</span>

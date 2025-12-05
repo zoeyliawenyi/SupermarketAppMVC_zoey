@@ -71,7 +71,7 @@ body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
         <div>
           <h2 style="margin:0;">Reviews</h2>
-          <p class="muted" style="margin:4px 0 0;">Inspect, edit, or delete user reviews.</p>
+          <p class="muted" style="margin:4px 0 0;">Inspect or delete user reviews.</p>
         </div>
       </div>
       <table class="table" style="margin-top:12px;">
@@ -82,8 +82,9 @@ body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle
             <th>Product</th>
             <th>Rating</th>
             <th>Comment</th>
+            <th>Reply</th>
             <th>Created</th>
-            <th>Actions</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -92,20 +93,16 @@ body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle
               <td>#<%= r.id %></td>
               <td><%= r.username || ('User '+ (r.userId||'')) %> <span class="muted" style="display:block;"><%= r.userRole === 'deleted' ? 'deleted user' : '' %></span></td>
               <td><%= r.productName || ('Product ' + (r.productId||'')) %></td>
-              <td>
-                <form action="/admin/reviews/<%= r.id %>/update" method="POST" class="actions">
-                  <input class="input" type="number" name="rating" min="1" max="5" value="<%= r.rating %>" required>
-                  <textarea class="textarea" name="comment" rows="2"><%= r.comment || '' %></textarea>
-                  <button class="btn primary" type="submit">Update</button>
-                </form>
-              </td>
+              <td><%= r.rating %></td>
               <td><%= r.comment || '' %></td>
-              <td class="muted"><%= r.created_at || r.createdAt || '' %></td>
               <td>
-                <form action="/admin/reviews/<%= r.id %>/delete" method="POST">
-                  <button class="btn" type="submit">Delete</button>
+                <form action="/admin/reviews/<%= r.id %>/update" method="POST">
+                  <textarea class="textarea" name="reply" rows="2" placeholder="Reply to user"><%= r.reply || '' %></textarea>
+                  <button class="btn primary" type="submit">Save reply</button>
                 </form>
               </td>
+              <td class="muted"><%= r.created_at || r.createdAt || '' %></td>
+              <td></td>
             </tr>
           <% }) %>
         </tbody>

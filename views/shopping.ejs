@@ -481,6 +481,30 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
     font-weight: 700;
 }
 
+/* delete modal */
+.modal-mask {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.35);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+}
+.modal {
+    background: #fff;
+    border-radius: 14px;
+    padding: 18px;
+    box-shadow: var(--shadow);
+    max-width: 380px;
+    width: 90%;
+}
+.modal h4 { margin: 0 0 8px; }
+.modal p { margin: 0 0 12px; color: var(--muted); }
+.modal-actions { display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; }
+.btn-ghost { border:1px solid var(--border); padding:8px 12px; border-radius:10px; background:#fff; cursor:pointer; font-weight:600; }
+.btn-danger { background: linear-gradient(135deg,#f87171,#ef4444); color:#fff; border:none; padding:8px 14px; border-radius:10px; cursor:pointer; font-weight:700; }
+
 </style>
 </head>
 <body>
@@ -495,11 +519,14 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         <a href="/favorites">Favorites</a>
         <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
         <details class="user-menu">
-          <summary>?? <%= user.username %> ?</summary>
+          <summary>👤 <%= user.username %> ▾</summary>
           <div class="dropdown">
             <a href="/account">My Account</a>
             <a href="/orders">My Orders</a>
             <a href="/reviews">My Reviews</a>
+            <form class="delete-account-form" action="/account/delete" method="POST" style="margin:0;">
+              <button type="submit" style="background:none;border:none;padding:8px 12px;width:100%;text-align:left;cursor:pointer;color:#b91c1c;">Delete Account</button>
+            </form>
             <a href="/logout">Logout</a>
           </div>
         </details>
@@ -554,10 +581,10 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
           <div class="filter-label">Sort</div>
           <div class="filter-field">
             <select id="sortSelect">
-              <option value="name-asc">Name A ? Z</option>
-              <option value="name-desc">Name Z ? A</option>
-              <option value="price-asc">Price low ? high</option>
-              <option value="price-desc">Price high ? low</option>
+              <option value="name-asc">Name A > Z</option>
+              <option value="name-desc">Name Z > A</option>
+              <option value="price-asc">Price low > high</option>
+              <option value="price-desc">Price high > low</option>
             </select>
           </div>
         </div>
@@ -635,7 +662,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         const category = card.dataset.category;
         const dietary = card.dataset.dietary;
 
-        const matchesSearch = q ? name.startsWith(q) : true;
+        const matchesSearch = q ? (name.includes(q) || category.includes(q) || dietary.includes(q)) : true;
         const matchesCategory = cat ? category === cat : true;
         const matchesDietary = diet ? dietary === diet : true;
         return matchesSearch && matchesCategory && matchesDietary;
@@ -708,6 +735,28 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       });
     });
 
+    // Pretty delete account confirm
+    const delForms = Array.from(document.querySelectorAll('.delete-account-form'));
+    if (delForms.length) {
+      const mask = document.createElement('div');
+      mask.className = 'modal-mask';
+      mask.innerHTML = `
+        <div class="modal">
+          <h4>Delete account?</h4>
+          <p>This will mark your account as deleted and sign you out.</p>
+          <div class="modal-actions">
+            <button type="button" class="btn-ghost" id="delCancel">Cancel</button>
+            <button type="button" class="btn-danger" id="delConfirm">Delete</button>
+          </div>
+        </div>`;
+      document.body.appendChild(mask);
+      let activeForm = null;
+      const closeModal = () => { mask.style.display = 'none'; activeForm = null; };
+      delForms.forEach(f => f.addEventListener('submit', (e) => { e.preventDefault(); activeForm = f; mask.style.display = 'flex'; }));
+      mask.querySelector('#delCancel').addEventListener('click', closeModal);
+      mask.querySelector('#delConfirm').addEventListener('click', () => { if (activeForm) activeForm.submit(); closeModal(); });
+      mask.addEventListener('click', (e) => { if (e.target === mask) closeModal(); });
+    }
+
   })();
 </script>
-

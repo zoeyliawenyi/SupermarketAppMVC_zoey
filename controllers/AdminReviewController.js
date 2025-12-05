@@ -10,17 +10,13 @@ const list = (req, res) => {
   });
 };
 
-const update = (req, res) => {
+const reply = (req, res) => {
   const { id } = req.params;
-  const rating = Number(req.body.rating);
-  const comment = req.body.comment || '';
-  if (!rating || rating < 1 || rating > 5) {
-    return res.status(400).send('Rating must be between 1 and 5');
-  }
-  Review.update(id, { rating, comment }, (err) => {
+  const replyText = req.body.reply || '';
+  Review.reply(id, replyText, (err) => {
     if (err) {
-      console.error('DB error updating review', err);
-      return res.status(500).send('Error updating review');
+      console.error('DB error replying to review', err);
+      return res.status(500).send('Error saving reply');
     }
     res.redirect('/admin/reviews');
   });
@@ -37,4 +33,4 @@ const remove = (req, res) => {
   });
 };
 
-module.exports = { list, update, remove };
+module.exports = { list, reply, remove };

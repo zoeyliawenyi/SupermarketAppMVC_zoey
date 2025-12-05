@@ -106,33 +106,17 @@ exports.detail = (req, res) => {
 
       const ids = needImgs.filter(i => i.productId).map(i => i.productId);
       const names = needImgs.filter(i => !i.productId && i.productName).map(i => i.productName);
-      const queries = [];
-      if (ids.length) {
-        queries.push(new Promise((resolve) => {
-          db.query('SELECT id, image FROM products WHERE id IN (?)', [ids], (e, rows) => resolve(rows || []));
-        }));
-      }
-      if (names.length) {
-        queries.push(new Promise((resolve) => {
-          db.query('SELECT productName, image FROM products WHERE productName IN (?)', [names], (e, rows) => resolve(rows || []));
-        }));
-      }
-
-      Promise.all(queries).then(results => {
-        const imgsById = {};
-        const imgsByName = {};
-        results.flat().forEach(r => {
-          if (r.id) imgsById[r.id] = r.image;
-          if (r.productName) imgsByName[r.productName.toLowerCase()] = r.image;
-        });
-        list.forEach(it => {
-          if (!it.productImage) {
-            if (it.productId && imgsById[it.productId]) it.productImage = imgsById[it.productId];
-            else if (it.productName && imgsByName[it.productName.toLowerCase()]) it.productImage = imgsByName[it.productName.toLowerCase()];
-          }
-        });
+      Order.getProductImages({ ids, names }, (errImgs, maps) => {
+        if (!errImgs && maps) {
+          list.forEach(it => {
+            if (!it.productImage) {
+              if (it.productId && maps.imgsById[it.productId]) it.productImage = maps.imgsById[it.productId];
+              else if (it.productName && maps.imgsByName[it.productName.toLowerCase()]) it.productImage = maps.imgsByName[it.productName.toLowerCase()];
+            }
+          });
+        }
         doRender();
-      }).catch(() => doRender());
+      });
     });
   });
 };

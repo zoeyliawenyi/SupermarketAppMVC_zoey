@@ -517,25 +517,6 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       </div>
     </div>
 
-    <% if (lowStock && lowStock.length) { %>
-    <div class="table-shell" style="margin-top:14px; border-left:4px solid #f59e0b;">
-      <div class="section-head">
-        <h3 style="margin:0;">Low stock alerts</h3>
-        <span class="muted"><%= lowStock.length %> item(s) below 20</span>
-      </div>
-      <table>
-        <thead><tr><th>Product</th><th>Stock</th></tr></thead>
-        <tbody>
-          <% lowStock.forEach(function(p){ %>
-            <tr>
-              <td><%= p.productName %></td>
-              <td style="color:#b91c1c; font-weight:700;"><%= p.stock %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
-    </div>
-    <% } %>
 
     <div class="table-shell" style="margin-top:18px;">
       <div class="section-head">
@@ -592,7 +573,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         </thead>
         <tbody>
           <% products.forEach(function(p){ %>
-            <tr data-name="<%= (p.productName || '').toLowerCase() %>" data-category="<%= (p.category || '').toLowerCase() %>" data-description="<%= (p.description || '').toLowerCase() %>" data-stock="<%= p.stock %>" data-price="<%= Number(p.price).toFixed(2) %>">
+            <tr data-name="<%= (p.productName || '').toLowerCase() %>" data-category="<%= (p.category || '').toLowerCase() %>" data-description="<%= (p.description || '').toLowerCase() %>" data-stock="<%= p.stock %>" data-price="<%= Number(p.price).toFixed(2) %>" class="<%= Number(p.stock) < 20 ? 'low-row' : '' %>">
               <td>
                 <div style="display:flex;align-items:center;gap:12px;">
                   <img src="/images/<%= p.image %>" alt="<%= p.productName %>" style="width:54px;height:54px;object-fit:cover;border-radius:10px;border:1px solid var(--border);">
@@ -603,7 +584,9 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
               </td>
               <td>
                 <form class="inline-form" action="/inventory/<%= p.id %>/stock" method="POST" style="display:flex; align-items:center; gap:8px;">
-                  <input type="number" name="stock" min="0" value="<%= p.stock %>" style="width:80px; padding:8px; border:1px solid var(--border); border-radius:10px;">
+                  <% const low = Number(p.stock) < 20; %>
+                  <span style="font-size:16px; color:<%= low ? '#dc2626' : '#6b7280' %>;"><%= low ? 'low stock⚠️' : '' %></span>
+                  <input type="number" name="stock" min="0" value="<%= p.stock %>" style="width:80px; padding:8px; border:1px solid var(--border); border-radius:10px; <%= low ? 'background:#fef2f2; color:#b91c1c;' : '' %>">
                   <button class="pill-action" type="submit">Update</button>
                 </form>
               </td>
@@ -637,8 +620,8 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
           const category = row.dataset.category;
           const desc = row.dataset.description;
 
-          // Only match products whose name begins with the query
-          const matchesSearch = q ? name.startsWith(q) : true;
+          // Match if query appears anywhere in name/category/description
+          const matchesSearch = q ? (name.includes(q) || category.includes(q) || desc.includes(q)) : true;
           const matchesCategory = cat ? category === cat : true;
           return matchesSearch && matchesCategory;
         });
