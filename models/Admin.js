@@ -13,7 +13,13 @@ const getDashboardStats = (callback) => {
             db.query('SELECT COUNT(*) AS totalOrders FROM orders', (orderErr, orderRows) => {
                 if (orderErr) return callback(orderErr);
                 stats.orders = orderRows[0]?.totalOrders || 0;
-                return callback(null, stats);
+
+                // low stock items
+                db.query('SELECT id, productName, stock, image FROM products WHERE stock < 20 ORDER BY stock ASC LIMIT 20', (lsErr, lowRows) => {
+                    if (lsErr) return callback(lsErr);
+                    stats.lowStock = lowRows || [];
+                    return callback(null, stats);
+                });
             });
         });
     });

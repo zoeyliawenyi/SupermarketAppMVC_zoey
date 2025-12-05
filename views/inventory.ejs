@@ -517,6 +517,26 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       </div>
     </div>
 
+    <% if (lowStock && lowStock.length) { %>
+    <div class="table-shell" style="margin-top:14px; border-left:4px solid #f59e0b;">
+      <div class="section-head">
+        <h3 style="margin:0;">Low stock alerts</h3>
+        <span class="muted"><%= lowStock.length %> item(s) below 20</span>
+      </div>
+      <table>
+        <thead><tr><th>Product</th><th>Stock</th></tr></thead>
+        <tbody>
+          <% lowStock.forEach(function(p){ %>
+            <tr>
+              <td><%= p.productName %></td>
+              <td style="color:#b91c1c; font-weight:700;"><%= p.stock %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% } %>
+
     <div class="table-shell" style="margin-top:18px;">
       <div class="section-head">
         <h2>Products</h2>

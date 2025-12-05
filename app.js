@@ -184,7 +184,8 @@ app.get('/inventory', checkAuthenticated, checkAdmin, (req, res) => {
           console.error('DB error /inventory:', error);
           return res.status(500).send('Database error');
       }
-      res.render('inventory', { products: results, user: req.session.user });
+      const lowStock = results.filter(p => Number(p.stock) < 20);
+      res.render('inventory', { products: results, user: req.session.user, lowStock });
   });
 });
 
