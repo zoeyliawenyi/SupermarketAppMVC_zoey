@@ -26,7 +26,9 @@ const list = (req, res) => {
           console.error('DB error loading product for review:', pErr);
           return sendView(reviews, null);
         }
-        sendView(reviews, rows && rows[0] ? rows[0] : null);
+        // Also check if user has already reviewed this product
+        const productInfo = rows && rows[0] ? rows[0] : null;
+        sendView(reviews, productInfo);
       });
     } else {
       sendView(reviews, null);

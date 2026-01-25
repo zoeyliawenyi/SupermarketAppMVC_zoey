@@ -622,7 +622,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
           const category = row.dataset.category;
           const desc = row.dataset.description;
 
-          // Match if query appears anywhere in name/category/description
+          // Match if query appears anywhere in name/category/description (already implemented as .includes)
           const matchesSearch = q ? (name.includes(q) || category.includes(q) || desc.includes(q)) : true;
           const matchesCategory = cat ? category === cat : true;
           return matchesSearch && matchesCategory;

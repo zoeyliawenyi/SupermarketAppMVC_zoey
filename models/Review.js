@@ -15,7 +15,6 @@ const Review = {
     `;
     db.query(sql, [userId], (err, rows) => {
       if (err && err.code === 'ER_BAD_FIELD_ERROR') {
-        // fallback if reply column not present
         const fallback = `
           SELECT r.*, p.productName, p.image, '' AS reply
           FROM reviews r
@@ -49,6 +48,10 @@ const Review = {
       }
       cb(err, rows);
     });
+  },
+  listByProduct(productId, cb) {
+    const sql = 'SELECT r.*, IFNULL(r.reply, "") AS reply, u.username FROM reviews r LEFT JOIN users u ON u.id = r.userId WHERE r.productId = ? ORDER BY r.created_at DESC, r.id DESC';
+    db.query(sql, [productId], cb);
   },
   getProductInfo(productId, cb) {
     const sql = 'SELECT id, productName, image FROM products WHERE id = ? LIMIT 1';
