@@ -91,6 +91,27 @@ CREATE TABLE IF NOT EXISTS cart_items (
 );
 
 
+-- NETS Transactions Table 
+CREATE TABLE IF NOT EXISTS nets_transactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId INT,
+    orderId INT NULL,
+    txnRetrievalRef VARCHAR(80) NOT NULL,
+    courseInitId VARCHAR(80),
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'SGD',
+    status VARCHAR(40) DEFAULT 'pending',
+    rawResponse JSON NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_txn_ref (txnRetrievalRef),
+    INDEX idx_nets_user (userId),
+    INDEX idx_nets_order (orderId),
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (orderId) REFERENCES orders(id) ON DELETE SET NULL
+);
+
+
 -- Sample Data
 INSERT INTO users (username, email, password, address, contact, role) VALUES
 ('admin', 'admin@zozomart.com', SHA1('admin123'), 'Admin Office', '88888888', 'admin'),
