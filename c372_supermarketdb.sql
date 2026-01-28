@@ -78,7 +78,7 @@ CREATE TABLE IF NOT EXISTS favorites (
     FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE
 );
 
--- Cart Items Table (New)
+-- Cart Items Table 
 CREATE TABLE IF NOT EXISTS cart_items (
     id INT AUTO_INCREMENT PRIMARY KEY,
     userId INT,
@@ -89,6 +89,7 @@ CREATE TABLE IF NOT EXISTS cart_items (
     FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE
 );
+
 
 -- Sample Data
 INSERT INTO users (username, email, password, address, contact, role) VALUES

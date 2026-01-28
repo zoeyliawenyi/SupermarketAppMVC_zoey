@@ -151,21 +151,6 @@ a:hover { color: #ff3d77; }
 .modal-actions { display:flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
 .hidden { display: none; }
 
-.paynow-modal {
-    background: #fff;
-    padding: 16px;
-    border-radius: 12px;
-    width: 360px;
-    box-shadow: var(--shadow);
-    text-align: center;
-}
-
-.countdown {
-    font-weight: 700;
-    color: #d14343;
-    margin-bottom: 10px;
-}
-
 @media (max-width: 900px) {
   .grid-2 { grid-template-columns: 1fr; }
   .nav { position: static; }
@@ -230,8 +215,8 @@ a:hover { color: #ff3d77; }
           <div class="card" style="box-shadow:none; border:1px solid var(--border);">
             <div class="option-list">
               <label class="option-item">
-                <input type="radio" name="paymentMethod" value="paynow" <%= shipping.payment === 'paynow' ? 'checked' : '' %>>
-                <span>PayNow</span>
+                <input type="radio" name="paymentMethod" value="nets-qr" <%= shipping.payment === 'nets-qr' ? 'checked' : '' %>>
+                <span>NETS QR</span>
               </label>
               <label class="option-item">
                 <input type="radio" name="paymentMethod" value="card" <%= shipping.payment === 'card' ? 'checked' : '' %>>
@@ -319,16 +304,6 @@ a:hover { color: #ff3d77; }
     </div>
   </div>
 
-  <div class="modal-backdrop" id="paynowBackdrop" style="display:none;">
-    <div class="paynow-modal">
-      <h4>PayNow</h4>
-      <div class="countdown" id="paynowCountdown">30:00</div>
-      <p class="muted">Scan the QR to pay. We will confirm your payment shortly.</p>
-      <p style="font-weight:700;">Total: $ <span id="paynowTotal"><%= total.toFixed(2) %></span></p>
-      <img src="/images/paynow.jpg" alt="PayNow QR" style="width:240px; height:240px; object-fit:cover; border-radius:10px; border:1px solid var(--border);">
-    </div>
-  </div>
-
   <script>
     (function(){
       const shipCostTxt = document.getElementById('shipCostTxt');
@@ -341,8 +316,6 @@ a:hover { color: #ff3d77; }
         const totalVal = subtotalVal + shipCost;
         shipCostTxt.textContent = '$ ' + shipCost.toFixed(2);
         totalTxt.textContent = '$ ' + totalVal.toFixed(2);
-        const paynowTotal = document.getElementById('paynowTotal');
-        if (paynowTotal) paynowTotal.textContent = totalVal.toFixed(2);
       }
 
       document.querySelectorAll('input[name="shipOption"]').forEach(r => {
@@ -379,8 +352,13 @@ a:hover { color: #ff3d77; }
       const editContact = document.getElementById('editContact');
       const editAddress = document.getElementById('editAddress');
       const billingField = document.getElementById('cardBilling');
-      const paynowBackdrop = document.getElementById('paynowBackdrop');
-      const paynowCountdown = document.getElementById('paynowCountdown');
+      function submitNetsQr() {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '/nets-qr/request';
+        document.body.appendChild(form);
+        form.submit();
+      }
 
       // ensure billing mirrors shipping on load
       (function syncBillingOnLoad(){
@@ -428,33 +406,9 @@ a:hover { color: #ff3d77; }
       }
 
       document.getElementById('placeOrderBtn').addEventListener('click', () => {
-        const payMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'paynow';
-        if (payMethod === 'paynow') {
-          paynowBackdrop.style.display = 'flex';
-          let remaining = 30 * 60;
-          const interval = setInterval(() => {
-            remaining--;
-            const m = Math.floor(remaining / 60).toString().padStart(2, '0');
-            const s = (remaining % 60).toString().padStart(2, '0');
-            paynowCountdown.textContent = `${m}:${s}`;
-            if (remaining <= 0) {
-                clearInterval(interval);
-                alert('Session expired. Please try again.');
-                window.location.href = '/cart';
-            }
-          }, 1000);
-          // Simulation: after 8 seconds, if not cancelled, submit
-          const timeout = setTimeout(() => {
-            clearInterval(interval);
-            submitOrder({ paymentMethod: 'paynow' });
-          }, 8000);
-          
-          // Add a way to cancel if needed, or just let it run.
-          // The teacher's feedback says "orders can still be placed before the timer expires"
-          // which is actually what happens here. If they want it to ONLY be placed AFTER
-          // or if they want it to NOT be placed if timer expires, we should clarify.
-          // Usually, a checkout timer means you MUST finish before it expires.
-          // Let's implement a "Timer Expired" block.
+        const payMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'nets-qr';
+        if (payMethod === 'nets-qr') {
+          submitNetsQr();
         } else {
           const cardNumber = (document.getElementById('cardNumber').value || '').replace(/\\D/g,'');
           const cardCvv = (document.getElementById('cardCvv').value || '').replace(/\\D/g,'');

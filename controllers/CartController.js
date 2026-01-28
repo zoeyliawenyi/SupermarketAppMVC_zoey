@@ -102,8 +102,9 @@ const CartController = {
                 contact: req.session.user.contact || '',
                 address: req.session.user.address || '',
                 option: 'pickup',
-                payment: 'paynow'
+                payment: 'nets-qr'
             };
+            if (shipping.payment === 'paynow') shipping.payment = 'nets-qr';
             const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
             const subtotal = cartForCheckout.reduce((sum, item) => sum + item.price * item.quantity, 0);
             const totalQuantity = cartForCheckout.reduce((sum, item) => sum + item.quantity, 0);
@@ -139,7 +140,7 @@ const CartController = {
     updatePayment: (req, res) => {
         const { payment } = req.body;
         if (!req.session.checkoutShipping) req.session.checkoutShipping = {};
-        req.session.checkoutShipping.payment = payment === 'card' ? 'card' : 'paynow';
+        req.session.checkoutShipping.payment = payment === 'card' ? 'card' : 'nets-qr';
         res.json({ success: true, payment: req.session.checkoutShipping.payment });
     },
 
@@ -159,11 +160,11 @@ const CartController = {
                 return res.redirect('/cart');
             }
 
-            const shipping = req.session.checkoutShipping || { option: 'pickup', payment: 'paynow', contact: '', address: '' };
+            const shipping = req.session.checkoutShipping || { option: 'pickup', payment: 'nets-qr', contact: '', address: '' };
             const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
             const subtotal = cartForOrder.reduce((sum, item) => sum + item.price * item.quantity, 0);
             const total = subtotal + shippingCost;
-            const paymentMethod = req.body.paymentMethod || shipping.payment || 'paynow';
+            const paymentMethod = req.body.paymentMethod || shipping.payment || 'nets-qr';
             
             let status = 'payment successful';
             if (paymentMethod === 'card' && Number(req.body.cardYear) <= 2025) {

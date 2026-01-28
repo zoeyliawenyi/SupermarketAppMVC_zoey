@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const flash = require('connect-flash');
@@ -13,6 +14,7 @@ const orderController = require('./controllers/OrderController');
 const favoriteController = require('./controllers/FavoriteController');
 const reviewController = require('./controllers/ReviewController');
 const adminReviewController = require('./controllers/AdminReviewController');
+const netsController = require('./controllers/NetsController');
 
 // Multer setup
 const storage = multer.diskStorage({
@@ -145,6 +147,10 @@ app.post('/checkout/shipping', checkAuthenticated, CartController.updateShipping
 app.post('/checkout/option', checkAuthenticated, CartController.updateOption);
 app.post('/checkout/payment', checkAuthenticated, CartController.updatePayment);
 app.post('/place-order', checkAuthenticated, CartController.placeOrder);
+app.post('/nets-qr/request', checkAuthenticated, netsController.start);
+app.get('/sse/payment-status/:txnRetrievalRef', checkAuthenticated, netsController.sseStatus);
+app.get('/nets-qr/success', checkAuthenticated, netsController.success);
+app.get('/nets-qr/fail', checkAuthenticated, netsController.fail);
 
 app.get('/orders', checkAuthenticated, orderController.listUserOrders);
 app.get('/orders/success', checkAuthenticated, (req, res) => {
