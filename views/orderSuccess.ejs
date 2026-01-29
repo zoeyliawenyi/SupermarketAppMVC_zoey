@@ -6,64 +6,132 @@
   <title>ZozoMart | Order placed</title>
   <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-:root { --text:#111827; --muted:#6b7280; }
-body { font-family:'Poppins',sans-serif; margin:0; background:#f6f7fb; color:var(--text); display:flex; justify-content:center; align-items:center; min-height:100vh; }
-.nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
-.brand { display:flex; align-items:center; gap:10px; font-weight:700; }
-.brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); box-shadow: 0 0 10px rgba(255,92,138,0.6); }
-.nav-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-.nav-links a { padding: 8px 14px; border-radius: 10px; color: #111827; font-weight: 500; text-decoration:none; }
-.cart-link { position:relative; display:inline-flex; align-items:center; gap:6px; }
+:root {
+  --bg: #fdf7fb;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent: #ff5c8a;
+  --success: #22c55e;
+  --border: 1px solid rgba(17,24,39,0.05);
+  --shadow: 0 25px 45px rgba(17,24,39,0.1);
+  --card: #fff;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background: radial-gradient(circle at 15% 20%, rgba(255, 92, 138, 0.15), transparent 45%), linear-gradient(180deg, #fff, var(--bg));
+  color: var(--text);
+}
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 999px;
+  border: var(--border);
+  background: rgba(255,255,255,0.95);
+  padding: 12px 18px;
+  box-shadow: 0 12px 30px rgba(17,24,39,0.09);
+  position: sticky;
+  top: 12px;
+  z-index: 10;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.brand .dot { width: 12px; height: 12px; border-radius: 50%; background: linear-gradient(135deg, #ff5c8a, #ff8fb1); box-shadow: 0 0 10px rgba(255, 92, 138, 0.6); }
+.nav-links { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.nav-links a { padding: 8px 14px; border-radius: 10px; color: var(--text); font-weight: 500; text-decoration: none; transition: background 0.2s ease; }
+.nav-links a:hover { background: rgba(255,92,138,0.1); }
+.cart-link { position: relative; display: inline-flex; align-items: center; gap: 6px; }
 .cart-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:2px 6px; border-radius:999px; background:#16804a; color:#fff; font-size:12px; font-weight:700; }
-.pill { background: linear-gradient(135deg,#1d63f1,#10b981); color:#fff !important; box-shadow:0 10px 30px rgba(16,185,129,0.35); }
-.card { background:#fff; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); text-align:center; width:480px; margin:0 auto; }
-.check { width:74px; height:74px; border-radius:50%; background:#22c55e; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:36px; color:#fff; }
-.btns { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:18px; }
-.btn { padding:12px 16px; border-radius:12px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-weight:600; }
-.btn.primary { background: linear-gradient(135deg,#ff91b9,#f04dd0); color:#fff; border:none; }
-  
-.user-menu { position: relative; }
-.user-menu summary { list-style: none; cursor: pointer; padding: 8px 12px; border-radius: 10px; }
-.user-menu[open] summary, .user-menu summary:hover { background: rgba(255, 92, 138, 0.12); }
-.user-menu .dropdown { position: absolute; right: 0; top: 110%; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 12px 30px rgba(17,24,39,0.08); min-width: 150px; padding: 8px 0; z-index: 20; }
-.user-menu .dropdown a { display: block; padding: 8px 12px; color: #111827; text-decoration: none; }
-.user-menu .dropdown a:hover { background: rgba(255, 92, 138, 0.12); }
-</style>
+.page-grid { margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.status-card {
+  background: var(--card);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+.status-card.success { border: 1px solid rgba(34, 197, 94, 0.3); }
+.status-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--success);
+  color: #fff;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+.detail-panel {
+  background: var(--card);
+  border-radius: 20px;
+  padding: 24px;
+  border: var(--border);
+  box-shadow: 0 12px 35px rgba(17,24,39,0.08);
+}
+.detail-panel h3 { margin-top: 0; }
+.detail-list { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
+.detail-list li {
+  background: rgba(255, 92, 138, 0.08);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.detail-list li span:first-child { font-weight: 600; color: #c026d3; }
+.detail-list li span:last-child { color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 24px; }
+.btn {
+  border-radius: 12px;
+  border: none;
+  padding: 12px 18px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn.primary { background: linear-gradient(135deg, #ff91b9, #f04dd0); color: #fff; }
+.btn.secondary { background: #fff; border: 1px solid rgba(17,24,39,0.2); color: var(--text); }
+.note { font-size: 14px; color: var(--muted); margin-top: 12px; }
+@media (max-width: 640px) {
+  .nav { flex-direction: column; gap: 8px; }
+}
+  </style>
 </head>
 <body>
-  <div class="shell" style="max-width:900px; margin:0 auto; padding:24px;">
+  <div class="container">
     <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
         ZozoMart
       </div>
-            <div class="nav-links">
+      <div class="nav-links">
         <a href="/shopping">Home</a>
         <a href="/favorites">Favorites</a>
         <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-        <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
-          <div class="dropdown">
-            <a href="/account">My Account</a>
-            <a href="/orders">My Orders</a>
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
       </div>
     </nav>
 
-    <div class="card" style="margin-top:20px;">
-      <div class="check">&#10003;</div>
-      <h2>Order placed successfully</h2>
-      <p class="muted">Thank you for your purchase. Your order ID is #<%= orderId %>.</p>
-      <div class="btns">
-        <a class="btn primary" href="/orders">View my orders</a>
-        <a class="btn" href="/orders/<%= orderId %>/invoice" target="_blank">Print invoice (PDF)</a>
-        <a class="btn" href="/shopping">Continue shopping</a>
+    <div class="page-grid">
+      <div class="status-card success">
+        <div class="status-icon">&#10003;</div>
+        <h2>Order placed successfully</h2>
+        <p class="muted">Your groceries are staged with care. Order #<%= orderId %> has been confirmed.</p>
+        <p class="note">We will notify you once the rider picks up the bag. Estimated delivery updates will appear in your dashboard.</p>
+        <div class="actions">
+          <a class="btn primary" href="/orders">View my orders</a>
+          <a class="btn secondary" href="/shopping">Continue shopping</a>
+          <a class="btn secondary" href="/orders/<%= orderId %>/invoice" target="_blank">Print invoice (PDF)</a>
+        </div>
       </div>
     </div>
   </div>
 </body>
 </html>
-
-

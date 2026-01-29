@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Request Refund</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+    body { font-family:'Poppins',sans-serif; margin:0; background:#f6f7fb; color:#111827; }
+    .shell { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+    .brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); }
+    .nav-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .nav-links a { padding:8px 14px; border-radius:10px; color:#111827; font-weight:500; text-decoration:none; }
+    .card { background:#fff; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); margin-top:20px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { text-align:left; padding:10px; border-bottom:1px solid #e5e7eb; }
+    .input, select, textarea { width:100%; padding:10px; border-radius:8px; border:1px solid #e5e7eb; }
+    .btn { padding:12px 16px; border-radius:12px; border:none; background:linear-gradient(135deg,#ff5c8a,#ff8fb1); color:#fff; font-weight:600; cursor:pointer; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand"><span class="dot"></span>ZozoMart</div>
+      <div class="nav-links">
+        <a href="/orders">My Orders</a>
+        <a href="/refunds">Refunds</a>
+      </div>
+    </nav>
+
+    <div class="card">
+      <h2>Refund Request for Order #<%= order.id %></h2>
+      <form method="POST" action="/refunds/request">
+        <input type="hidden" name="orderId" value="<%= order.id %>">
+        <div style="display:grid; gap:12px; margin-bottom:16px;">
+          <div>
+            <label>Refund type</label>
+            <select name="refundType">
+              <option value="partial_refund">Partial refund</option>
+              <option value="full_refund">Full refund</option>
+              <option value="price_adjustment">Price adjustment</option>
+              <option value="cancellation_refund">Cancellation refund</option>
+              <option value="delivery_fee_refund">Delivery fee refund</option>
+              <option value="substitution_difference">Substitution difference</option>
+            </select>
+          </div>
+          <div>
+            <label>Preferred method</label>
+            <select name="preferredMethod">
+              <option value="original">Original payment method</option>
+              <option value="wallet">Wallet credit</option>
+            </select>
+          </div>
+          <div>
+            <label>Reason</label>
+            <select name="reason" required>
+              <option value="missing_item">Missing item</option>
+              <option value="wrong_item">Wrong item</option>
+              <option value="damaged">Damaged</option>
+              <option value="spoiled">Spoiled</option>
+              <option value="expired">Expired</option>
+              <option value="late_delivery">Late delivery</option>
+              <option value="pricing_promo_issue">Pricing or promo issue</option>
+              <option value="changed_mind">Changed mind</option>
+            </select>
+          </div>
+          <div>
+            <label>Additional note</label>
+            <textarea class="input" name="note" rows="3"></textarea>
+          </div>
+          <div>
+            <label>Evidence image URL (optional)</label>
+            <input class="input" name="evidenceImage" placeholder="https://...">
+          </div>
+        </div>
+
+        <h3>Select items</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Purchased Qty</th>
+              <th>Remaining Refundable</th>
+              <th>Qty to Refund</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% items.forEach(it => { %>
+              <tr>
+                <td><%= it.productName %></td>
+                <td><%= it.quantity %></td>
+                <td><%= it.remainingQty %></td>
+                <td style="max-width:120px;">
+                  <input class="input" type="number" min="0" max="<%= it.remainingQty %>" name="qty_<%= it.id %>" value="0">
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+        <div style="margin-top:16px;">
+          <button class="btn" type="submit">Submit refund request</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

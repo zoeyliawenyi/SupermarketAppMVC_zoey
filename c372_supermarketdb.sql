@@ -111,6 +111,83 @@ CREATE TABLE IF NOT EXISTS nets_transactions (
     FOREIGN KEY (orderId) REFERENCES orders(id) ON DELETE SET NULL
 );
 
+-- Refunds Table
+CREATE TABLE IF NOT EXISTS refunds (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    orderId INT NOT NULL,
+    userId INT NOT NULL,
+    refundType ENUM(
+        'full_refund',
+        'partial_refund',
+        'price_adjustment',
+        'cancellation_refund',
+        'delivery_fee_refund',
+        'substitution_difference'
+    ) NOT NULL,
+    reason ENUM(
+        'missing_item',
+        'wrong_item',
+        'damaged',
+        'spoiled',
+        'expired',
+        'late_delivery',
+        'pricing_promo_issue',
+        'changed_mind'
+    ) NOT NULL,
+    note TEXT,
+    evidenceImage VARCHAR(255),
+    preferredMethod ENUM('original', 'wallet') NOT NULL,
+    status ENUM('requested', 'approved', 'rejected', 'initiated', 'completed', 'failed', 'manual_review') NOT NULL DEFAULT 'requested',
+    adminId INT NULL,
+    adminNote TEXT,
+    inventoryDisposition ENUM('restock', 'dispose', 'no_return') NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_refunds_user (userId),
+    INDEX idx_refunds_order (orderId),
+    INDEX idx_refunds_status (status),
+    FOREIGN KEY (orderId) REFERENCES orders(id) ON DELETE CASCADE,
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Refund Items Table
+CREATE TABLE IF NOT EXISTS refund_items (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    refundId INT NOT NULL,
+    orderItemId INT NOT NULL,
+    productId INT NULL,
+    productName VARCHAR(100) NOT NULL,
+    qtyRequested INT NOT NULL,
+    qtyApproved INT NOT NULL DEFAULT 0,
+    unitPrice DECIMAL(10, 2) NOT NULL,
+    lineRefundAmount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_refund_items_refund (refundId),
+    INDEX idx_refund_items_order_item (orderItemId),
+    FOREIGN KEY (refundId) REFERENCES refunds(id) ON DELETE CASCADE,
+    FOREIGN KEY (orderItemId) REFERENCES order_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (productId) REFERENCES products(id) ON DELETE SET NULL,
+    CHECK (qtyApproved <= qtyRequested),
+    CHECK (qtyRequested > 0)
+);
+
+-- Refund Transactions Table
+CREATE TABLE IF NOT EXISTS refund_transactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    refundId INT NOT NULL,
+    provider ENUM('nets', 'paypal', 'manual') NOT NULL,
+    providerRef VARCHAR(120),
+    amount DECIMAL(10, 2) NOT NULL,
+    currency VARCHAR(10) DEFAULT 'SGD',
+    txnStatus ENUM('pending', 'completed', 'failed') NOT NULL DEFAULT 'pending',
+    rawResponse TEXT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_refund_provider (refundId, provider),
+    FOREIGN KEY (refundId) REFERENCES refunds(id) ON DELETE CASCADE
+);
+
 
 -- Sample Data
 INSERT INTO users (username, email, password, address, contact, role) VALUES

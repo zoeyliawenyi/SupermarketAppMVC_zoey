@@ -10,6 +10,9 @@ exports.listUserOrders = (req, res) => {
       req.flash('error', 'Could not load orders.');
       return res.render('orders', { user: req.session.user, orders: [] });
     }
+    if (results && results.length) {
+      console.log('First order status:', results[0].status);
+    }
     const summaries = (req.session.orderSummary) || {};
     const lastOrder = req.session.lastOrder;
     const ordersBase = (results || []).map(o => ({ ...o, id: Number(o.id) }));
@@ -77,6 +80,7 @@ exports.detail = (req, res) => {
       console.error('DB error /orders/:id:', err);
       return res.redirect(backLink);
     }
+    console.log('Order detail status:', order.status);
     OrderItem.findByOrderId(orderId, (itemErr, items) => {
       if (itemErr) console.error('DB error order_items detail:', itemErr);
       const list = items || [];
@@ -116,6 +120,150 @@ exports.detail = (req, res) => {
           });
         }
         doRender();
+      });
+    });
+  });
+};
+
+exports.cancelOrder = (req, res) => {
+  const orderId = parseInt(req.params.orderId, 10);
+  if (Number.isNaN(orderId)) {
+    req.flash('error', 'Invalid order');
+    return res.redirect('/orders');
+  }
+  Order.findByIdWithAgg(orderId, (err, order) => {
+    if (err || !order) {
+      req.flash('error', 'Order not found');
+      return res.redirect('/orders');
+    }
+    if (order.userId !== req.session.user.id) {
+      req.flash('error', 'Access denied');
+      return res.redirect('/orders');
+    }
+    const status = (order.status || '').trim().toLowerCase();
+    if (status !== 'payment successful' && status !== 'packing') {
+      req.flash('error', 'Order cannot be cancelled at this stage');
+      return res.redirect(`/orders/${orderId}`);
+    }
+
+    OrderItem.findByOrderId(orderId, (itemErr, items) => {
+      if (itemErr) {
+        console.error('Order items error:', itemErr);
+        req.flash('error', 'Unable to cancel order');
+        return res.redirect(`/orders/${orderId}`);
+      }
+      const list = items || [];
+      db.beginTransaction((txErr) => {
+        if (txErr) {
+          console.error('Cancel order tx error:', txErr);
+          req.flash('error', 'Unable to cancel order');
+          return res.redirect(`/orders/${orderId}`);
+        }
+
+        const dupSql = 'SELECT id FROM refunds WHERE orderId = ? AND refundType = ? LIMIT 1';
+        db.query(dupSql, [orderId, 'cancellation_refund'], (dupErr, dupRows) => {
+          if (dupErr) {
+            return db.rollback(() => {
+              console.error('Cancel order dup check error:', dupErr);
+              req.flash('error', 'Unable to cancel order');
+              res.redirect(`/orders/${orderId}`);
+            });
+          }
+          if (dupRows && dupRows.length) {
+            return db.rollback(() => {
+              req.flash('error', 'A cancellation refund already exists for this order');
+              res.redirect(`/orders/${orderId}`);
+            });
+          }
+
+          const updateSql = 'UPDATE orders SET status = ? WHERE id = ? AND userId = ?';
+          db.query(updateSql, ['Cancelled', orderId, req.session.user.id], (updErr) => {
+            if (updErr) {
+              return db.rollback(() => {
+                console.error('Order cancel update error:', updErr);
+                req.flash('error', 'Unable to cancel order');
+                res.redirect(`/orders/${orderId}`);
+              });
+            }
+
+            const refundSql = `
+              INSERT INTO refunds
+              (orderId, userId, refundType, reason, note, evidenceImage, preferredMethod, status, adminNote)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `;
+            const refundValues = [
+              orderId,
+              req.session.user.id,
+              'cancellation_refund',
+              'changed_mind',
+              'User cancelled before shipment',
+              null,
+              'original',
+              'approved',
+              'Auto-approved cancellation refund'
+            ];
+            db.query(refundSql, refundValues, (refErr, refResult) => {
+              if (refErr) {
+                return db.rollback(() => {
+                  console.error('Refund insert error:', refErr);
+                  req.flash('error', 'Unable to cancel order');
+                  res.redirect(`/orders/${orderId}`);
+                });
+              }
+              const refundId = refResult.insertId;
+              if (!list.length) {
+                return db.commit((commitErr) => {
+                  if (commitErr) {
+                    console.error('Cancel commit error:', commitErr);
+                    req.flash('error', 'Unable to cancel order');
+                    return res.redirect(`/orders/${orderId}`);
+                  }
+                  req.flash('success', 'Order cancelled successfully');
+                  res.redirect(`/orders/${orderId}`);
+                });
+              }
+
+              const itemValues = list.map((it) => {
+                const qty = Number(it.quantity || 0);
+                const unitPrice = Number(it.price || 0);
+                const lineRefundAmount = unitPrice * qty;
+                return [
+                  refundId,
+                  it.id,
+                  it.productId || null,
+                  it.productName || 'Item',
+                  qty,
+                  qty,
+                  unitPrice,
+                  lineRefundAmount
+                ];
+              });
+              const itemsSql = `
+                INSERT INTO refund_items
+                (refundId, orderItemId, productId, productName, qtyRequested, qtyApproved, unitPrice, lineRefundAmount)
+                VALUES ?
+              `;
+              db.query(itemsSql, [itemValues], (itemInsErr) => {
+                if (itemInsErr) {
+                  return db.rollback(() => {
+                    console.error('Refund items insert error:', itemInsErr);
+                    req.flash('error', 'Unable to cancel order');
+                    res.redirect(`/orders/${orderId}`);
+                  });
+                }
+                db.commit((commitErr) => {
+                  if (commitErr) {
+                    console.error('Cancel commit error:', commitErr);
+                    req.flash('error', 'Unable to cancel order');
+                    return res.redirect(`/orders/${orderId}`);
+                  }
+                  req.flash('success', 'Order cancelled successfully');
+                  res.redirect(`/orders/${orderId}`);
+                });
+              });
+            });
+          });
+        });
       });
     });
   });

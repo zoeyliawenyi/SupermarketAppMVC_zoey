@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Refund Detail</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+    body { font-family:'Poppins',sans-serif; margin:0; background:#f6f7fb; color:#111827; }
+    .shell { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+    .brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); }
+    .nav-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .nav-links a { padding:8px 14px; border-radius:10px; color:#111827; font-weight:500; text-decoration:none; }
+    .card { background:#fff; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); margin-top:20px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { text-align:left; padding:10px; border-bottom:1px solid #e5e7eb; }
+    .input, select, textarea { width:100%; padding:8px; border-radius:8px; border:1px solid #e5e7eb; }
+    .btn { padding:10px 14px; border-radius:10px; border:none; cursor:pointer; font-weight:600; }
+    .btn.primary { background: linear-gradient(135deg,#ff5c8a,#ff8fb1); color:#fff; }
+    .btn.secondary { background: #fff; border:1px solid #e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand"><span class="dot"></span>ZozoMart Admin</div>
+      <div class="nav-links">
+        <a href="/admin/refunds">Refunds</a>
+        <a href="/admin/orders">Orders</a>
+      </div>
+    </nav>
+
+    <div class="card">
+      <h2>Refund #<%= refund.id %></h2>
+      <p>Order: #<%= refund.orderId %></p>
+      <p>User: <%= refund.username %></p>
+      <p>Status: <strong><%= refund.status %></strong></p>
+      <p>Type: <%= refund.refundType %></p>
+      <p>Preferred method: <%= refund.preferredMethod %></p>
+      <p>Reason: <%= refund.reason %></p>
+      <% if (refund.evidenceImage) { %>
+        <p><a href="<%= refund.evidenceImage %>" target="_blank">View evidence</a></p>
+      <% } %>
+    </div>
+
+    <div class="card">
+      <h3>Refund Items</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Requested</th>
+            <th>Approved</th>
+            <th>Unit Price</th>
+            <th>Line Refund</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% items.forEach(it => { %>
+            <tr>
+              <td><%= it.productName %></td>
+              <td><%= it.qtyRequested %></td>
+              <td><%= it.qtyApproved %></td>
+              <td>$<%= Number(it.unitPrice || 0).toFixed(2) %></td>
+              <td>$<%= Number(it.lineRefundAmount || 0).toFixed(2) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Decision</h3>
+      <form method="POST" action="/admin/refunds/<%= refund.id %>/decision">
+        <div style="display:grid; gap:12px;">
+          <div>
+            <label>Decision</label>
+            <select name="decision">
+              <option value="approved">Approve</option>
+              <option value="rejected">Reject</option>
+            </select>
+          </div>
+          <div>
+            <label>Inventory disposition</label>
+            <select name="inventoryDisposition">
+              <option value="restock">Restock</option>
+              <option value="dispose">Dispose</option>
+              <option value="no_return">No return</option>
+            </select>
+          </div>
+          <div>
+            <label>Admin note</label>
+            <textarea class="input" name="adminNote" rows="3"></textarea>
+          </div>
+          <div>
+            <label>Approved quantities</label>
+            <% items.forEach(it => { %>
+              <div style="display:flex; gap:10px; align-items:center; margin-bottom:8px;">
+                <span style="width:180px;"><%= it.productName %></span>
+                <input class="input" type="number" min="0" max="<%= it.qtyRequested %>" name="qtyApproved_<%= it.id %>" value="<%= it.qtyApproved %>">
+              </div>
+            <% }) %>
+          </div>
+          <button class="btn primary" type="submit">Save decision</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h3>Refund Transaction</h3>
+      <% if (transaction) { %>
+        <p>Provider: <%= transaction.provider %></p>
+        <p>Status: <%= transaction.txnStatus %></p>
+        <p>Amount: $<%= Number(transaction.amount || 0).toFixed(2) %></p>
+      <% } else { %>
+        <p>No refund transaction initiated yet.</p>
+      <% } %>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <form method="POST" action="/admin/refunds/<%= refund.id %>/initiate">
+          <button class="btn secondary" type="submit">Initiate Refund</button>
+        </form>
+        <form method="POST" action="/admin/refunds/<%= refund.id %>/complete">
+          <button class="btn secondary" type="submit">Mark Completed</button>
+        </form>
+        <form method="POST" action="/admin/refunds/<%= refund.id %>/fail">
+          <button class="btn secondary" type="submit">Mark Failed</button>
+        </form>
+      </div>
+      <p style="margin-top:8px; color:#6b7280;">Provider stubs are used until NETS/PayPal refund APIs are integrated.</p>
+    </div>
+  </div>
+</body>
+</html>

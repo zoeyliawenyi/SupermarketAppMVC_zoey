@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Refund Detail</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+    body { font-family:'Poppins',sans-serif; margin:0; background:#f6f7fb; color:#111827; }
+    .shell { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+    .brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); }
+    .nav-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .nav-links a { padding:8px 14px; border-radius:10px; color:#111827; font-weight:500; text-decoration:none; }
+    .card { background:#fff; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); margin-top:20px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { text-align:left; padding:10px; border-bottom:1px solid #e5e7eb; }
+    .pill { padding:4px 10px; border-radius:999px; font-size:12px; font-weight:600; background:#f3f4f6; }
+    .pill.requested { background:#fde68a; }
+    .pill.approved { background:#bbf7d0; }
+    .pill.initiated { background:#bfdbfe; }
+    .pill.completed { background:#d1fae5; }
+    .pill.rejected { background:#fecaca; }
+    .pill.failed { background:#fecaca; }
+    .pill.manual_review { background:#e5e7eb; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand"><span class="dot"></span>ZozoMart</div>
+      <div class="nav-links">
+        <a href="/refunds">Refunds</a>
+        <a href="/orders">My Orders</a>
+      </div>
+    </nav>
+
+    <div class="card">
+      <h2>Refund #<%= refund.id %></h2>
+      <p>Status: <span class="pill <%= refund.status %>"><%= refund.status %></span></p>
+      <p>Reason: <%= refund.reason %></p>
+      <p>Preferred method: <%= refund.preferredMethod %></p>
+      <% if (refund.evidenceImage) { %>
+        <p><a href="<%= refund.evidenceImage %>" target="_blank">View evidence</a></p>
+      <% } %>
+    </div>
+
+    <div class="card">
+      <h3>Items</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Requested</th>
+            <th>Approved</th>
+            <th>Unit Price</th>
+            <th>Line Refund</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% items.forEach(it => { %>
+            <tr>
+              <td><%= it.productName %></td>
+              <td><%= it.qtyRequested %></td>
+              <td><%= it.qtyApproved %></td>
+              <td>$<%= Number(it.unitPrice || 0).toFixed(2) %></td>
+              <td>$<%= Number(it.lineRefundAmount || 0).toFixed(2) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card">
+      <h3>Transaction</h3>
+      <% if (transaction) { %>
+        <p>Provider: <%= transaction.provider %></p>
+        <p>Status: <%= transaction.txnStatus %></p>
+        <p>Amount: $<%= Number(transaction.amount || 0).toFixed(2) %></p>
+      <% } else { %>
+        <p>No refund transaction initiated yet.</p>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>

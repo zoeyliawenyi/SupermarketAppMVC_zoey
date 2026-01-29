@@ -140,14 +140,18 @@ const CartController = {
     updatePayment: (req, res) => {
         const { payment } = req.body;
         if (!req.session.checkoutShipping) req.session.checkoutShipping = {};
-        req.session.checkoutShipping.payment = payment === 'card' ? 'card' : 'nets-qr';
+        if (payment === 'card') req.session.checkoutShipping.payment = 'card';
+        if (payment === 'paypal') req.session.checkoutShipping.payment = 'paypal';
+        if (payment !== 'card' && payment !== 'paypal') req.session.checkoutShipping.payment = 'nets-qr';
         res.json({ success: true, payment: req.session.checkoutShipping.payment });
     },
 
     placeOrder: (req, res) => {
         const userId = req.session.user.id;
+        const wantsJson = (req.get('accept') || '').includes('application/json');
         Cart.getByUserId(userId, (err, cart) => {
             if (err || !cart || cart.length === 0) {
+                if (wantsJson) return res.status(400).json({ success: false, message: 'Your cart is empty' });
                 req.flash('error', 'Your cart is empty');
                 return res.redirect('/cart');
             }
@@ -156,6 +160,7 @@ const CartController = {
             const cartForOrder = sel.length ? cart.filter(item => sel.includes(Number(item.productId))) : cart;
             
             if (!cartForOrder.length) {
+                if (wantsJson) return res.status(400).json({ success: false, message: 'No items selected for checkout' });
                 req.flash('error', 'No items selected for checkout');
                 return res.redirect('/cart');
             }
@@ -183,6 +188,7 @@ const CartController = {
             Order.create(orderPayload, (orderErr, orderId) => {
                 if (orderErr) {
                     console.error('Place order error:', orderErr);
+                    if (wantsJson) return res.status(500).json({ success: false, message: 'Could not place order.' });
                     req.flash('error', 'Could not place order.');
                     return res.redirect('/cart');
                 }
@@ -209,10 +215,20 @@ const CartController = {
                             if (clearErr) console.error('Clear cart error:', clearErr);
                             
                             req.session.lastOrder = { id: orderId, items: cartForOrder };
-                            req.session.checkoutSelection = [];
-                            res.redirect(status !== 'payment failed' ? `/orders/success?id=${orderId}` : `/orders/fail?id=${orderId}`);
-                        });
-                    }
+                        req.session.checkoutSelection = [];
+                        const redirectUrl = status !== 'payment failed' ? `/orders/success?id=${orderId}` : `/orders/fail?id=${orderId}`;
+                        const responsePayload = {
+                            success: status !== 'payment failed',
+                            orderId,
+                            status,
+                            redirect: redirectUrl
+                        };
+                        if (wantsJson) {
+                            return res.json(responsePayload);
+                        }
+                        res.redirect(redirectUrl);
+                    });
+                }
                 });
             });
         });

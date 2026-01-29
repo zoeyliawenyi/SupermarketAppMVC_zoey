@@ -6,64 +6,144 @@
   <title>ZozoMart | Payment failed</title>
   <style>
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-:root { --text:#111827; --muted:#6b7280; }
-body { font-family:'Poppins',sans-serif; margin:0; background:#f6f7fb; color:var(--text); display:flex; justify-content:center; align-items:center; min-height:100vh; }
-.nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
-.brand { display:flex; align-items:center; gap:10px; font-weight:700; }
-.brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); box-shadow: 0 0 10px rgba(255,92,138,0.6); }
-.nav-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-.nav-links a { padding: 8px 14px; border-radius: 10px; color: #111827; font-weight: 500; text-decoration:none; }
-.cart-link { position:relative; display:inline-flex; align-items:center; gap:6px; }
+:root {
+  --bg: #fef5f5;
+  --text: #111827;
+  --muted: #6b7280;
+  --accent: #f87171;
+  --border: 1px solid rgba(17,24,39,0.06);
+  --shadow: 0 25px 45px rgba(17,24,39,0.1);
+  --card: #fff;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+  background: radial-gradient(circle at 20% 20%, rgba(248, 113, 113, 0.12), transparent 45%), linear-gradient(180deg, #fff, var(--bg));
+  color: var(--text);
+}
+.container {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-radius: 999px;
+  border: var(--border);
+  padding: 12px 18px;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 12px 30px rgba(17,24,39,0.09);
+  position: sticky;
+  top: 12px;
+  z-index: 10;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.brand .dot { width: 12px; height: 12px; border-radius: 50%; background: linear-gradient(135deg, #ff5c8a, #ff91b9); box-shadow: 0 0 10px rgba(255, 92, 138, 0.6); }
+.nav-links { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.nav-links a { padding: 8px 14px; border-radius: 10px; color: var(--text); font-weight: 500; text-decoration: none; }
+.nav-links a:hover { background: rgba(255,92,138,0.1); }
+.cart-link { position: relative; display: inline-flex; align-items: center; gap: 6px; }
 .cart-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:2px 6px; border-radius:999px; background:#16804a; color:#fff; font-size:12px; font-weight:700; }
-.pill { background: linear-gradient(135deg,#1d63f1,#10b981); color:#fff !important; box-shadow:0 10px 30px rgba(16,185,129,0.35); }
-.card { background:#fff; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); text-align:center; width:480px; margin:0 auto; }
-.fail { width:74px; height:74px; border-radius:50%; background:#f87171; display:flex; align-items:center; justify-content:center; margin:0 auto 16px; font-size:36px; color:#fff; }
-.btns { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin-top:18px; }
-.btn { padding:12px 16px; border-radius:12px; border:1px solid #e5e7eb; background:#fff; cursor:pointer; font-weight:600; text-decoration:none; color:#111827; }
-.btn.primary { background: linear-gradient(135deg,#f87171,#f43f5e); color:#fff; border:none; }
-  
-.user-menu { position: relative; }
-.user-menu summary { list-style: none; cursor: pointer; padding: 8px 12px; border-radius: 10px; }
-.user-menu[open] summary, .user-menu summary:hover { background: rgba(255, 92, 138, 0.12); }
-.user-menu .dropdown { position: absolute; right: 0; top: 110%; background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; box-shadow: 0 12px 30px rgba(17,24,39,0.08); min-width: 150px; padding: 8px 0; z-index: 20; }
-.user-menu .dropdown a { display: block; padding: 8px 12px; color: #111827; text-decoration: none; }
-.user-menu .dropdown a:hover { background: rgba(255, 92, 138, 0.12); }
-</style>
+.page-grid { margin-top: 32px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+.status-card {
+  background: var(--card);
+  border-radius: 24px;
+  padding: 32px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  border: 1px solid rgba(248,113,113,0.2);
+}
+.status-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  margin: 0 auto 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+.status-card h2 { margin-bottom: 10px; }
+.status-card p { color: var(--muted); }
+.detail-panel {
+  background: #fff;
+  border-radius: 20px;
+  padding: 24px;
+  border: var(--border);
+  box-shadow: 0 12px 35px rgba(17,24,39,0.08);
+}
+.detail-panel h3 { margin-top: 0; }
+.detail-list { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
+.detail-list li {
+  background: rgba(248, 113, 113, 0.12);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+}
+.detail-list li span:first-child { font-weight: 600; color: #c71c1c; }
+.detail-list li span:last-child { color: var(--muted); }
+.actions { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:24px; }
+.btn {
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn.primary { background: linear-gradient(135deg, #f87171, #f04343); color:#fff; border:none; }
+.btn.secondary { background:#fff; border:1px solid rgba(17,24,39,0.1); color: var(--text); }
+.note { font-size: 14px; color: var(--muted); margin-top: 12px; }
+@media (max-width: 640px) {
+  .nav { flex-direction: column; gap: 8px; }
+}
+  </style>
 </head>
 <body>
-  <div class="shell" style="max-width:900px; margin:0 auto; padding:24px;">
+  <div class="container">
     <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
         ZozoMart
       </div>
-            <div class="nav-links">
+      <div class="nav-links">
         <a href="/shopping">Home</a>
         <a href="/favorites">Favorites</a>
         <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-        <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
-          <div class="dropdown">
-            <a href="/account">My Account</a>
-            <a href="/orders">My Orders</a>
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
       </div>
     </nav>
 
-    <div class="card" style="margin-top:20px;">
-      <div class="fail">&#10006;</div>
-      <h2>Payment failed</h2>
-      <p class="muted">We could not process your payment. Your order ID is #<%= orderId %> and is marked as payment failed.</p>
-      <div class="btns">
-        <a class="btn primary" href="/checkout">Try again</a>
-        <a class="btn" href="/orders">View my orders</a>
-        <a class="btn" href="/shopping">Continue shopping</a>
+    <div class="page-grid">
+      <div class="status-card">
+        <div class="status-icon">&#10006;</div>
+        <h2>Payment not completed</h2>
+        <p class="muted">We couldn't process payment for order #<%= orderId %>. Your cart is safe and waiting.</p>
+        <p class="note">Transactions are retried automatically. If the issue persists, try another payment method or contact support.</p>
+        <div class="actions">
+          <a class="btn primary" href="/checkout">Retry checkout</a>
+          <a class="btn secondary" href="/cart">Review cart</a>
+          <a class="btn secondary" href="/orders">View orders</a>
+        </div>
+      </div>
+      <div class="detail-panel">
+        <h3>Why payments fail</h3>
+        <ul class="detail-list">
+          <li><span>Insufficient balance</span><span>Check your card or PayPal account before retrying.</span></li>
+          <li><span>Card decline</span><span>Try a different credit/debit card.</span></li>
+          <li><span>Security hold</span><span>Contact your bank to release the hold.</span></li>
+          <li><span>Network issue</span><span>Switch to another network or refresh.</span></li>
+        </ul>
+        <p class="note">Need help now? Reach out to support for priority assistance and we can move your order to the front.</p>
       </div>
     </div>
   </div>
 </body>
 </html>
-
 

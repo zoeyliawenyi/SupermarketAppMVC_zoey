@@ -15,6 +15,9 @@ const favoriteController = require('./controllers/FavoriteController');
 const reviewController = require('./controllers/ReviewController');
 const adminReviewController = require('./controllers/AdminReviewController');
 const netsController = require('./controllers/NetsController');
+const paypalController = require('./controllers/PayPalController');
+const refundController = require('./controllers/RefundController');
+const adminRefundController = require('./controllers/AdminRefundController');
 
 // Multer setup
 const storage = multer.diskStorage({
@@ -152,6 +155,9 @@ app.get('/sse/payment-status/:txnRetrievalRef', checkAuthenticated, netsControll
 app.get('/nets-qr/success', checkAuthenticated, netsController.success);
 app.get('/nets-qr/fail', checkAuthenticated, netsController.fail);
 
+app.post('/api/paypal/create-order', checkAuthenticated, paypalController.createOrder);
+app.post('/api/paypal/capture-order', checkAuthenticated, paypalController.captureOrder);
+
 app.get('/orders', checkAuthenticated, orderController.listUserOrders);
 app.get('/orders/success', checkAuthenticated, (req, res) => {
     const id = req.query.id || (req.session.lastOrder && req.session.lastOrder.id);
@@ -163,6 +169,18 @@ app.get('/orders/fail', checkAuthenticated, (req, res) => {
 });
 app.get('/orders/:id', checkAuthenticated, orderController.detail);
 app.get('/orders/:id/invoice', checkAuthenticated, orderController.invoice);
+app.post('/orders/:orderId/cancel', checkAuthenticated, orderController.cancelOrder);
+
+// Refunds (User)
+app.get('/refunds', checkAuthenticated, refundController.list);
+app.get('/refunds/request/:orderId', checkAuthenticated, refundController.showRequest);
+app.post('/refunds/request', checkAuthenticated, refundController.submitRequest);
+app.get('/refunds/:refundId', checkAuthenticated, refundController.detail);
+
+// Refunds (User API)
+app.get('/api/refunds', checkAuthenticated, refundController.apiList);
+app.get('/api/refunds/:refundId', checkAuthenticated, refundController.apiDetail);
+app.post('/api/refunds/request', checkAuthenticated, refundController.apiRequest);
 
 // Admin Protected
 app.get('/admin/dashboard', checkAuthenticated, checkAdmin, adminController.dashboard);
@@ -176,6 +194,22 @@ app.get('/admin/orders/:id', checkAuthenticated, checkAdmin, orderController.det
 app.get('/admin/reviews', checkAuthenticated, checkAdmin, adminReviewController.list);
 app.post('/admin/reviews/:id/update', checkAuthenticated, checkAdmin, adminReviewController.reply);
 app.post('/admin/reviews/:id/delete', checkAuthenticated, checkAdmin, adminReviewController.remove);
+
+// Refunds (Admin)
+app.get('/admin/refunds', checkAuthenticated, checkAdmin, adminRefundController.list);
+app.get('/admin/refunds/:refundId', checkAuthenticated, checkAdmin, adminRefundController.detail);
+app.post('/admin/refunds/:refundId/decision', checkAuthenticated, checkAdmin, adminRefundController.decision);
+app.post('/admin/refunds/:refundId/initiate', checkAuthenticated, checkAdmin, adminRefundController.initiate);
+app.post('/admin/refunds/:refundId/complete', checkAuthenticated, checkAdmin, adminRefundController.complete);
+app.post('/admin/refunds/:refundId/fail', checkAuthenticated, checkAdmin, adminRefundController.fail);
+
+// Refunds (Admin API)
+app.get('/api/admin/refunds', checkAuthenticated, checkAdmin, adminRefundController.apiList);
+app.get('/api/admin/refunds/:refundId', checkAuthenticated, checkAdmin, adminRefundController.apiDetail);
+app.post('/api/admin/refunds/:refundId/decision', checkAuthenticated, checkAdmin, adminRefundController.apiDecision);
+app.post('/api/admin/refunds/:refundId/initiate', checkAuthenticated, checkAdmin, adminRefundController.apiInitiate);
+app.post('/api/admin/refunds/:refundId/complete', checkAuthenticated, checkAdmin, adminRefundController.apiComplete);
+app.post('/api/admin/refunds/:refundId/fail', checkAuthenticated, checkAdmin, adminRefundController.apiFail);
 
 app.get('/inventory', checkAuthenticated, checkAdmin, productController.showInventory);
 app.post('/inventory/:id/stock', checkAuthenticated, checkAdmin, productController.updateStock);

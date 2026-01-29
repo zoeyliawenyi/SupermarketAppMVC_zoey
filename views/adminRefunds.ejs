@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Refund Admin</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+    body { font-family:'Poppins',sans-serif; margin:0; background:#f6f7fb; color:#111827; }
+    .shell { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
+    .brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+    .brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); }
+    .nav-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .nav-links a { padding:8px 14px; border-radius:10px; color:#111827; font-weight:500; text-decoration:none; }
+    .card { background:#fff; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); margin-top:20px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { text-align:left; padding:10px; border-bottom:1px solid #e5e7eb; }
+    .filter { display:flex; gap:10px; align-items:center; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand"><span class="dot"></span>ZozoMart Admin</div>
+      <div class="nav-links">
+        <a href="/admin/dashboard">Dashboard</a>
+        <a href="/admin/orders">Orders</a>
+        <a href="/admin/refunds">Refunds</a>
+      </div>
+    </nav>
+
+    <div class="card">
+      <h2>Refund Requests</h2>
+      <form class="filter" method="GET" action="/admin/refunds">
+        <label>Status:</label>
+        <select name="status">
+          <option value="" <%= status === '' ? 'selected' : '' %>>All</option>
+          <option value="requested" <%= status === 'requested' ? 'selected' : '' %>>Requested</option>
+          <option value="approved" <%= status === 'approved' ? 'selected' : '' %>>Approved</option>
+          <option value="rejected" <%= status === 'rejected' ? 'selected' : '' %>>Rejected</option>
+          <option value="initiated" <%= status === 'initiated' ? 'selected' : '' %>>Initiated</option>
+          <option value="completed" <%= status === 'completed' ? 'selected' : '' %>>Completed</option>
+          <option value="failed" <%= status === 'failed' ? 'selected' : '' %>>Failed</option>
+          <option value="manual_review" <%= status === 'manual_review' ? 'selected' : '' %>>Manual Review</option>
+        </select>
+        <button type="submit">Filter</button>
+      </form>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>Order</th>
+            <th>Status</th>
+            <th>Reason</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!refunds || !refunds.length) { %>
+            <tr><td colspan="6">No refund requests found.</td></tr>
+          <% } else { refunds.forEach(r => { %>
+            <tr>
+              <td>#<%= r.id %></td>
+              <td><%= r.username %></td>
+              <td>#<%= r.orderId %></td>
+              <td><%= r.status %></td>
+              <td><%= r.reason %></td>
+              <td><a href="/admin/refunds/<%= r.id %>">View</a></td>
+            </tr>
+          <% }) } %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>
