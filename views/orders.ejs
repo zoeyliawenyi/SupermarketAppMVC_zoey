@@ -99,6 +99,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                const displayStatus = (o.status || 'placed').trim().toLowerCase();
                const canCancel = displayStatus === 'payment successful' || displayStatus === 'packing';
                const canRefund = displayStatus === 'out for delivery' || displayStatus === 'completed';
+               const canInvoice = displayStatus !== 'cancelled';
                const itemName = first && first.productName ? first.productName : (items.length > 1 ? 'Items' : (first && first.productId ? ('Item #' + first.productId) : 'Items'));
                const orderTotal = o.total ? Number(o.total) : items.reduce((s,it)=> s + (Number(it.price||0)*Number(it.quantity||0)), 0);
           %>
@@ -116,7 +117,9 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                 <div class="muted"><%= o.createdAt ? (o.createdAt.toLocaleString ? o.createdAt.toLocaleString() : o.createdAt) : '' %></div>
                 <div class="order-actions">
                   <a class="btn" href="/orders/<%= o.id %>">View more</a>
-                  <a class="btn primary" href="/orders/<%= o.id %>/invoice" target="_blank">Invoice (PDF)</a>
+                  <% if (canInvoice) { %>
+                    <a class="btn primary" href="/orders/<%= o.id %>/invoice" target="_blank">Invoice (PDF)</a>
+                  <% } %>
                   <% if (canCancel) { %>
                     <form method="POST" action="/orders/<%= o.id %>/cancel" style="margin:0;">
                       <button class="btn" type="submit">Cancel Order</button>

@@ -277,6 +277,11 @@ exports.invoice = (req, res) => {
       console.error('DB error /orders/:id/invoice:', err);
       return res.redirect('/orders');
     }
+    const statusLower = (order.status || '').trim().toLowerCase();
+    if (statusLower === 'cancelled') {
+      req.flash('error', 'Invoice is not available for cancelled orders.');
+      return res.redirect(`/orders/${orderId}`);
+    }
     OrderItem.findByOrderId(orderId, (itemErr, items) => {
       if (itemErr) console.error('DB error order_items invoice:', itemErr);
       const list = items || [];
