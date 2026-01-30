@@ -27,17 +27,29 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-async function createOrder(amount) {
+async function createOrder(amount, opts = {}) {
   const formattedAmount = Number(amount || 0).toFixed(2);
+  const idempotencyKey = opts.idempotencyKey || null;
+  const returnUrl = opts.returnUrl || null;
+  const cancelUrl = opts.cancelUrl || null;
   const accessToken = await getAccessToken();
   const response = await fetch(`${PAYPAL_API}/v2/checkout/orders`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${accessToken}`,
+      ...(idempotencyKey ? { 'PayPal-Request-Id': idempotencyKey } : {}),
     },
     body: JSON.stringify({
       intent: 'CAPTURE',
+      ...(returnUrl || cancelUrl
+        ? {
+            application_context: {
+              return_url: returnUrl || undefined,
+              cancel_url: cancelUrl || undefined,
+            },
+          }
+        : {}),
       purchase_units: [
         {
           amount: {
@@ -76,7 +88,34 @@ async function captureOrder(orderId) {
   return response.json();
 }
 
+async function refundCapture(captureId, amount) {
+  if (!captureId) throw new Error('Missing captureId for PayPal refund');
+  const formattedAmount = Number(amount || 0).toFixed(2);
+  const accessToken = await getAccessToken();
+  const response = await fetch(`${PAYPAL_API}/v2/payments/captures/${captureId}/refund`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify({
+      amount: {
+        currency_code: 'SGD',
+        value: formattedAmount,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.text();
+    throw new Error(`PayPal refund failed (${response.status}): ${payload}`);
+  }
+
+  return response.json();
+}
+
 module.exports = {
   createOrder,
   captureOrder,
+  refundCapture,
 };

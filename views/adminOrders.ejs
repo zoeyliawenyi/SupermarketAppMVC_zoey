@@ -41,6 +41,14 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 .table th, .table td { padding:10px; border-bottom:1px solid var(--border); text-align:left; white-space: nowrap; vertical-align: middle; }
 .user-cell { white-space: normal; }
 .status-badge { padding:6px 10px; border-radius:999px; font-weight:600; font-size:12px; display:inline-block; background: #e4e7ff; color:#1f2937; }
+.refund-badge { padding:6px 10px; border-radius:999px; font-weight:600; font-size:12px; display:inline-block; background: #e5e7eb; color:#374151; }
+.refund-badge[data-status="requested"] { background: rgba(59,130,246,0.16); color:#1d4ed8; }
+.refund-badge[data-status="approved"] { background: rgba(16,185,129,0.18); color:#047857; }
+.refund-badge[data-status="rejected"] { background: rgba(239,68,68,0.18); color:#b91c1c; }
+.refund-badge[data-status="processing"] { background: rgba(234,179,8,0.2); color:#92400e; }
+.refund-badge[data-status="refunded"] { background: rgba(124,58,237,0.16); color:#6d28d9; }
+.refund-badge[data-status="failed"] { background: rgba(239,68,68,0.18); color:#b91c1c; }
+.refund-badge[data-status="manual_review"] { background: rgba(107,114,128,0.2); color:#374151; }
 .actions { display:flex; gap:6px; align-items:center; flex-wrap: nowrap; }
 .actions .select { max-width: 200px; }
 .filter-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:10px 0; }
@@ -68,7 +76,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
         <a href="/admin/orders">Orders</a>
         <a href="/admin/reviews">Reviews</a>
         <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
+          <summary>User: <%= user.username %> v</summary>
           <div class="dropdown">
             <a href="/logout">Logout</a>
           </div>
@@ -107,6 +115,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
             <option>ready for pickup</option>
             <option>out for delivery</option>
             <option>completed</option>
+            <option>cancelled</option>
           </select>
           <select class="select" id="sortSelect">
             <option value="date-desc">Newest</option>
@@ -123,6 +132,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
             <th>ID</th>
             <th>User</th>
             <th>Status</th>
+            <th>Refund</th>
             <th>Total</th>
             <th>Placed</th>
             <th>Actions</th>
@@ -134,23 +144,39 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
               <td>#<%= o.id %></td>
               <td><%= o.userId || '-' %> <span class="muted" style="display:block;"><%= o.username || '' %></span></td>
               <td>
-                <% const statusLabel = (o.userRole === 'deleted') ? 'deleted user' : (o.status || 'placed'); %>
-                <span class="status-badge" data-status="<%= statusLabel.toLowerCase() %>"><%= statusLabel %></span>
+              <% const statusLabel = (o.userRole === 'deleted') ? 'deleted user' : (o.status || 'placed'); %>
+              <% const isCancelled = (statusLabel || '').toLowerCase().trim() === 'cancelled'; %>
+              <span class="status-badge" data-status="<%= statusLabel.toLowerCase() %>"><%= statusLabel %></span>
+            </td>
+              <td>
+                <% if (o.latestRefundId) { %>
+                  <% const rKey = (o.latestRefundStatus || '').toLowerCase().trim().replace(/\s+/g,'_'); %>
+                  <% const viewStatuses = ['completed','refunded','rejected']; %>
+                  <% const actionLabel = viewStatuses.includes(rKey) ? 'View refund' : 'Review refund'; %>
+                  <span class="refund-badge" data-status="<%= rKey %>">Refund: <%= o.latestRefundStatus %></span>
+                  <a class="btn" style="padding:4px 8px; font-size:12px;" href="/admin/refunds/<%= o.latestRefundId %>"><%= actionLabel %></a>
+                <% } else { %>
+                  <span class="muted">-</span>
+                <% } %>
               </td>
               <td>$ <%= Number(o.total).toFixed(2) %></td>
               <td><%= o.createdAt ? (o.createdAt.toLocaleString ? o.createdAt.toLocaleString() : o.createdAt) : '-' %></td>
               <td class="actions">
                 <a class="btn" href="/admin/orders/<%= o.id %>">Details</a>
                 <% const shipType = (o.deliveryType || '').toLowerCase(); const isPickup = shipType.includes('pickup'); const isDoorstep = shipType.includes('doorstep') || shipType.includes('delivery'); %>
-                <select class="select status-select">
-                  <option <%= o.status==='payment successful' ? 'selected' : '' %>>payment successful</option>
-                  <option <%= o.status==='payment failed' ? 'selected' : '' %>>payment failed</option>
-                  <option <%= o.status==='packing' ? 'selected' : '' %>>packing</option>
-                  <% if (!isDoorstep) { %><option <%= o.status==='ready for pickup' ? 'selected' : '' %>>ready for pickup</option><% } %>
-                  <% if (!isPickup) { %><option <%= o.status==='out for delivery' ? 'selected' : '' %>>out for delivery</option><% } %>
-                  <option <%= o.status==='completed' ? 'selected' : '' %>>completed</option>
-                </select>
-                <button class="btn primary update-btn" type="button">Update</button>
+                <% if (!isCancelled) { %>
+                  <select class="select status-select">
+                    <option <%= o.status==='payment successful' ? 'selected' : '' %>>payment successful</option>
+                    <option <%= o.status==='payment failed' ? 'selected' : '' %>>payment failed</option>
+                    <option <%= o.status==='packing' ? 'selected' : '' %>>packing</option>
+                    <% if (!isDoorstep) { %><option <%= o.status==='ready for pickup' ? 'selected' : '' %>>ready for pickup</option><% } %>
+                    <% if (!isPickup) { %><option <%= o.status==='out for delivery' ? 'selected' : '' %>>out for delivery</option><% } %>
+                    <option <%= o.status==='completed' ? 'selected' : '' %>>completed</option>
+                  </select>
+                  <button class="btn primary update-btn" type="button">Update</button>
+                <% } else { %>
+                  <span class="muted" style="font-size:12px;">Cancelled (locked)</span>
+                <% } %>
               </td>
             </tr>
           <% }) %>
@@ -169,7 +195,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
         'ready for pickup': '#d6c8ff',
         'out for delivery': '#c8f0df',
         'completed': '#bde7f5',
-        'deleted user': '#e5e7eb'
+        'cancelled': '#e5e7eb'
       };
 
       // Sales chart (last 6 months based on most recent order)
@@ -195,7 +221,8 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
       const salesByMonth = months.map(m => {
         const sum = orders.reduce((s,o)=>{
           const mk = monthKey(o);
-          if (mk === m.key) return s + Number(o.total||0);
+          const st = (o.status || '').toLowerCase().trim();
+          if (mk === m.key && st !== 'cancelled') return s + Number(o.total||0);
           return s;
         },0);
         return sum;
@@ -209,11 +236,11 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 
       // Status chart
       const statusCtx = document.getElementById('statusChart');
-      const legendStatuses = ['payment successful','payment failed','packing','ready for pickup','out for delivery','completed','deleted user'];
+      const legendStatuses = ['payment successful','payment failed','packing','ready for pickup','out for delivery','completed','cancelled'];
       const counts = {};
       legendStatuses.forEach(s => counts[s] = 0);
       orders.forEach(o => {
-        const s = (o.userRole === 'deleted') ? 'deleted user' : (o.status || 'placed').toLowerCase();
+        const s = (o.status || 'placed').toLowerCase().trim();
         if (counts.hasOwnProperty(s)) counts[s] += 1;
       });
       const statusLabels = legendStatuses;
@@ -292,3 +319,6 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
   </script>
 </body>
 </html>
+
+
+

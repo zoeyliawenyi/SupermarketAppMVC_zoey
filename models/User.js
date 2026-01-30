@@ -29,6 +29,12 @@ const User = {
         db.query(sql, [username, address, contact, id], callback);
     },
 
+    updateShipping: (id, data, callback) => {
+        const { address, contact } = data;
+        const sql = 'UPDATE users SET address = ?, contact = ? WHERE id = ?';
+        db.query(sql, [address, contact, id], callback);
+    },
+
     updatePassword: (email, password, callback) => {
         const sql = 'UPDATE users SET password = SHA1(?) WHERE email = ?';
         db.query(sql, [password, email], callback);
@@ -37,6 +43,27 @@ const User = {
     softDelete: (id, callback) => {
         const sql = 'UPDATE users SET role = "deleted" WHERE id = ?';
         db.query(sql, [id], callback);
+    },
+
+    findById: (id, callback) => {
+        const sql = 'SELECT * FROM users WHERE id = ?';
+        db.query(sql, [id], (err, results) => {
+            if (err) return callback(err);
+            callback(null, results && results[0] ? results[0] : null);
+        });
+    },
+
+    findByStripeCustomerId: (stripeCustomerId, callback) => {
+        const sql = 'SELECT * FROM users WHERE stripeCustomerId = ? LIMIT 1';
+        db.query(sql, [stripeCustomerId], (err, results) => {
+            if (err) return callback(err);
+            callback(null, results && results[0] ? results[0] : null);
+        });
+    },
+
+    updateStripeCustomerId: (id, stripeCustomerId, callback) => {
+        const sql = 'UPDATE users SET stripeCustomerId = ? WHERE id = ?';
+        db.query(sql, [stripeCustomerId, id], callback);
     }
 };
 

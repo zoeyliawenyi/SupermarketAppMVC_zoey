@@ -2,6 +2,7 @@ const Product = require('../models/Product');
 const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 const Cart = require('../models/Cart');
+const User = require('../models/User');
 
 const CartController = {
     showCart: (req, res) => {
@@ -99,11 +100,15 @@ const CartController = {
             }
 
             const shipping = req.session.checkoutShipping || {
-                contact: req.session.user.contact || '',
-                address: req.session.user.address || '',
+                contact: '',
+                address: '',
                 option: 'pickup',
                 payment: 'nets-qr'
             };
+            if (!shipping.contact) shipping.contact = req.session.user.contact || '';
+            if (!shipping.address) shipping.address = req.session.user.address || '';
+            if (!shipping.option) shipping.option = 'pickup';
+            if (!shipping.payment) shipping.payment = 'nets-qr';
             if (shipping.payment === 'paynow') shipping.payment = 'nets-qr';
             const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
             const subtotal = cartForCheckout.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -125,9 +130,23 @@ const CartController = {
     updateShipping: (req, res) => {
         const { contact, address } = req.body;
         if (!req.session.checkoutShipping) req.session.checkoutShipping = {};
-        req.session.checkoutShipping.contact = contact || '';
-        req.session.checkoutShipping.address = address || '';
-        res.json({ success: true, contact, address });
+        if (contact !== undefined) req.session.checkoutShipping.contact = contact || '';
+        if (address !== undefined) req.session.checkoutShipping.address = address || '';
+
+        const userId = req.session.user?.id;
+        const nextAddress = (address !== undefined ? (address || '') : (req.session.user?.address || ''));
+        const nextContact = (contact !== undefined ? (contact || '') : (req.session.user?.contact || ''));
+        if (!userId) return res.json({ success: true, contact, address });
+
+        User.updateShipping(userId, { address: nextAddress, contact: nextContact }, (err) => {
+            if (err) {
+                console.error('Update shipping error:', err);
+                return res.status(500).json({ success: false, message: 'Unable to update address' });
+            }
+            req.session.user.address = nextAddress;
+            req.session.user.contact = nextContact;
+            res.json({ success: true, contact: nextContact, address: nextAddress });
+        });
     },
 
     updateOption: (req, res) => {
@@ -142,7 +161,8 @@ const CartController = {
         if (!req.session.checkoutShipping) req.session.checkoutShipping = {};
         if (payment === 'card') req.session.checkoutShipping.payment = 'card';
         if (payment === 'paypal') req.session.checkoutShipping.payment = 'paypal';
-        if (payment !== 'card' && payment !== 'paypal') req.session.checkoutShipping.payment = 'nets-qr';
+        if (payment === 'stripe') req.session.checkoutShipping.payment = 'stripe';
+        if (payment !== 'card' && payment !== 'paypal' && payment !== 'stripe') req.session.checkoutShipping.payment = 'nets-qr';
         res.json({ success: true, payment: req.session.checkoutShipping.payment });
     },
 
@@ -170,67 +190,99 @@ const CartController = {
             const subtotal = cartForOrder.reduce((sum, item) => sum + item.price * item.quantity, 0);
             const total = subtotal + shippingCost;
             const paymentMethod = req.body.paymentMethod || shipping.payment || 'nets-qr';
+
+            const msg = 'Please complete payment using the selected method before placing the order.';
+            if (wantsJson) return res.status(400).json({ success: false, message: msg });
+            req.flash('error', msg);
+            return res.redirect('/checkout');
             
             let status = 'payment successful';
             if (paymentMethod === 'card' && Number(req.body.cardYear) <= 2025) {
                 status = 'payment failed';
             }
 
-            const orderPayload = {
+            const paymentProvider =
+                paymentMethod === 'paypal'
+                    ? 'paypal'
+                    : (paymentMethod === 'nets-qr' ? 'nets' : (paymentMethod === 'stripe' ? 'stripe' : null));
+
+            const buildOrderPayload = (pickupCode) => ({
                 userId: userId,
                 total,
                 paymentMethod,
+                paymentProvider,
                 deliveryType: shipping.option,
                 address: shipping.address || req.session.user.address,
+                pickupCode: pickupCode || null,
+                pickupCodeStatus: pickupCode ? 'active' : null,
+                pickupCodeRedeemedAt: null,
                 status
-            };
+            });
 
-            Order.create(orderPayload, (orderErr, orderId) => {
-                if (orderErr) {
-                    console.error('Place order error:', orderErr);
-                    if (wantsJson) return res.status(500).json({ success: false, message: 'Could not place order.' });
-                    req.flash('error', 'Could not place order.');
-                    return res.redirect('/cart');
-                }
-
-                OrderItem.createMany(orderId, cartForOrder, (itemErr) => {
-                    if (itemErr) console.error('Order items creation error:', itemErr);
-                    
-                    if (status !== 'payment failed') {
-                        // Decrement stock
-                        let pending = cartForOrder.length;
-                        cartForOrder.forEach(it => {
-                            Product.decrementStock(it.productId, it.quantity, () => {
-                                if (--pending === 0) finalize();
-                            });
-                        });
-                    } else {
-                        finalize();
+            const isPickup = (shipping.option || '').toLowerCase() === 'pickup';
+            const createOrder = (pickupCode) => {
+                const orderPayload = buildOrderPayload(pickupCode);
+                Order.create(orderPayload, (orderErr, orderId) => {
+                    if (orderErr) {
+                        console.error('Place order error:', orderErr);
+                        if (wantsJson) return res.status(500).json({ success: false, message: 'Could not place order.' });
+                        req.flash('error', 'Could not place order.');
+                        return res.redirect('/cart');
                     }
 
-                    function finalize() {
-                        // Clear ordered items from DB cart
-                        const orderedProductIds = cartForOrder.map(i => i.productId);
-                        Cart.clearItems(userId, orderedProductIds, (clearErr) => {
-                            if (clearErr) console.error('Clear cart error:', clearErr);
-                            
-                            req.session.lastOrder = { id: orderId, items: cartForOrder };
-                        req.session.checkoutSelection = [];
-                        const redirectUrl = status !== 'payment failed' ? `/orders/success?id=${orderId}` : `/orders/fail?id=${orderId}`;
-                        const responsePayload = {
-                            success: status !== 'payment failed',
-                            orderId,
-                            status,
-                            redirect: redirectUrl
-                        };
-                        if (wantsJson) {
-                            return res.json(responsePayload);
+                    OrderItem.createMany(orderId, cartForOrder, (itemErr) => {
+                        if (itemErr) console.error('Order items creation error:', itemErr);
+                        
+                        if (status !== 'payment failed') {
+                            // Decrement stock
+                            let pending = cartForOrder.length;
+                            cartForOrder.forEach(it => {
+                                Product.decrementStock(it.productId, it.quantity, () => {
+                                    if (--pending === 0) finalize();
+                                });
+                            });
+                        } else {
+                            finalize();
                         }
-                        res.redirect(redirectUrl);
+
+                        function finalize() {
+                            // Clear ordered items from DB cart
+                            const orderedProductIds = cartForOrder.map(i => i.productId);
+                            Cart.clearItems(userId, orderedProductIds, (clearErr) => {
+                                if (clearErr) console.error('Clear cart error:', clearErr);
+                                
+                                req.session.lastOrder = { id: orderId, items: cartForOrder };
+                                req.session.checkoutSelection = [];
+                                const redirectUrl = status !== 'payment failed' ? `/orders/success?id=${orderId}` : `/orders/fail?id=${orderId}`;
+                                const responsePayload = {
+                                    success: status !== 'payment failed',
+                                    orderId,
+                                    status,
+                                    redirect: redirectUrl
+                                };
+                                if (wantsJson) {
+                                    return res.json(responsePayload);
+                                }
+                                res.redirect(redirectUrl);
+                            });
+                        }
                     });
-                }
                 });
-            });
+            };
+
+            if (isPickup) {
+                Order.generatePickupCode((codeErr, code) => {
+                    if (codeErr) {
+                        console.error('Pickup code error:', codeErr);
+                        if (wantsJson) return res.status(500).json({ success: false, message: 'Could not place order.' });
+                        req.flash('error', 'Could not place order.');
+                        return res.redirect('/cart');
+                    }
+                    createOrder(code);
+                });
+            } else {
+                createOrder(null);
+            }
         });
     }
 };

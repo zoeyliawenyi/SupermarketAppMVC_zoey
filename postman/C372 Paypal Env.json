@@ -1,0 +1,28 @@
+{
+  "name": "C372 Paypal Env",
+  "values": [
+    { "key": "client_id", "value": "", "enabled": true },
+    { "key": "client_secret", "value": "", "enabled": true },
+    { "key": "base_url", "value": "https://api-m.sandbox.paypal.com", "enabled": true },
+    { "key": "order_id", "value": "", "enabled": true },
+    { "key": "capture_id", "value": "", "enabled": true },
+    { "key": "access_token", "value": "", "enabled": true },
+    { "key": "tomorrow", "value": "", "enabled": true },
+
+    { "key": "baseUrl", "value": "http://localhost:3000", "enabled": true },
+    { "key": "userCookie", "value": "", "enabled": true },
+    { "key": "adminCookie", "value": "", "enabled": true },
+    { "key": "orderId", "value": "", "enabled": true },
+    { "key": "orderItemId", "value": "", "enabled": true },
+    { "key": "paypalOrderId", "value": "", "enabled": true },
+    { "key": "paypalApproveUrl", "value": "", "enabled": true },
+    { "key": "netsTxnRef", "value": "", "enabled": true },
+    { "key": "netsRequestId", "value": "", "enabled": true },
+    { "key": "refundId", "value": "", "enabled": true },
+
+    { "key": "stripePaymentIntentId", "value": "", "enabled": true },
+    { "key": "stripeCheckoutSessionUrl", "value": "", "enabled": true },
+    { "key": "stripeSubscriptionId", "value": "", "enabled": true }
+  ],
+  "_postman_variable_scope": "environment"
+}

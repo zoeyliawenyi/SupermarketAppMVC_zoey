@@ -33,6 +33,15 @@ th { color:var(--muted); font-weight:700; }
 .muted { color:var(--muted); }
 .btn { padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer; font-weight:600; text-decoration:none; color:var(--text); }
 .btn.primary { background: linear-gradient(135deg,#ff91b9,#f04dd0); color:#fff; border:none; }
+.btn.danger { background: linear-gradient(135deg,#f87171,#dc2626); color:#fff; border:none; box-shadow: 0 10px 24px rgba(220,38,38,0.25); }
+.status-badge { padding:6px 10px; border-radius:999px; font-weight:700; font-size:12px; background:#e5e7eb; color:#1f2937; display:inline-block; }
+.status-badge[data-status="requested"] { background: rgba(59,130,246,0.16); color:#1d4ed8; }
+.status-badge[data-status="approved"] { background: rgba(16,185,129,0.18); color:#047857; }
+.status-badge[data-status="rejected"] { background: rgba(239,68,68,0.18); color:#b91c1c; }
+.status-badge[data-status="processing"] { background: rgba(234,179,8,0.2); color:#92400e; }
+.status-badge[data-status="refunded"] { background: rgba(124,58,237,0.16); color:#6d28d9; }
+.status-badge[data-status="failed"] { background: rgba(239,68,68,0.18); color:#b91c1c; }
+.status-badge[data-status="manual_review"] { background: rgba(107,114,128,0.2); color:#374151; }
   </style>
 </head>
 <body>
@@ -81,18 +90,28 @@ th { color:var(--muted); font-weight:700; }
         <% 
           const ship = (order.deliveryType || '').toLowerCase();
           const current = (order.status || '').trim().toLowerCase();
-          const steps = [
-            { num:1, label:(current==='payment failed' ? 'Payment Failed' : 'Payment Successful'), key:(current==='payment failed' ? 'payment failed' : 'payment successful') },
-            { num:2, label:'Packing', key:'packing' },
-            { num:3, label: ship.includes('pickup') ? 'Ready for pickup' : 'Out For Delivery', key: ship.includes('pickup') ? 'ready for pickup' : 'out for delivery' },
-            { num:4, label:'Completed', key:'completed' },
-          ];
-          const currentIdx = steps.findIndex(s => s.key === current);
+          const steps = current === 'cancelled'
+            ? [
+                { num:1, label:'Payment Successful', key:'payment successful' },
+                { num:2, label:'Order Cancelled', key:'cancelled' },
+                { num:3, label:'Refund Completed', key:'refund completed' },
+              ]
+            : [
+                { num:1, label:(current==='payment failed' ? 'Payment Failed' : (current==='pending_payment' ? 'Awaiting payment' : 'Payment Successful')), key:(current==='payment failed' ? 'payment failed' : (current==='pending_payment' ? 'pending_payment' : 'payment successful')) },
+                { num:2, label:'Packing', key:'packing' },
+                { num:3, label: ship.includes('pickup') ? 'Ready for pickup' : 'Out For Delivery', key: ship.includes('pickup') ? 'ready for pickup' : 'out for delivery' },
+                { num:4, label:'Completed', key:'completed' },
+              ];
+          const currentIdx = current === 'cancelled' ? steps.length - 1 : steps.findIndex(s => s.key === current);
         %>
         <% steps.forEach(function(step, idx){ 
              const isDone = currentIdx >= idx && currentIdx !== -1;
-             const badgeColor = step.key === 'payment failed' ? '#e03131' : (isDone ? '#16a34a' : '#e5e7eb');
-             const badgeTextColor = step.key === 'payment failed' ? '#fff' : (isDone ? '#fff' : '#1f2937');
+             const isCancelled = step.key === 'cancelled';
+             const isRefund = step.key === 'refund completed';
+             const badgeColor = step.key === 'payment failed'
+               ? '#e03131'
+               : (isCancelled ? '#dc2626' : (isRefund ? '#ec4899' : (isDone ? '#16a34a' : '#e5e7eb')));
+             const badgeTextColor = (step.key === 'payment failed' || isCancelled || isRefund) ? '#fff' : (isDone ? '#fff' : '#1f2937');
              const mutedText = isDone ? 'Completed' : 'Pending';
         %>
           <div class="status-chip">
@@ -158,8 +177,34 @@ th { color:var(--muted); font-weight:700; }
       <div class="summary">
         <h3 style="margin:0 0 10px;">Summary</h3>
         <div style="display:grid; grid-template-columns: 1fr 1fr; row-gap:8px;">
-          <div class="muted">Status</div><div><%= order.status || 'placed' %></div>
+          <%
+            const statusLabel = (order.status || '').toLowerCase() === 'pending_payment' ? 'Awaiting payment' : (order.status || 'placed');
+            const isStripePayment = (order.paymentMethod || '').toLowerCase() === 'stripe';
+            const refundStatusKey = refund ? (refund.status || '').trim().toLowerCase().replace(/\\s+/g, '_') : '';
+            const refundLabels = {
+              requested: 'Requested',
+              approved: 'Approved',
+              rejected: 'Rejected',
+              processing: 'Processing',
+              refunded: 'Refunded',
+              failed: 'Failed',
+              manual_review: 'Manual review',
+              completed: 'Completed'
+            };
+            const refundLabel = refund ? (refundLabels[refundStatusKey] || refund.status) : '';
+          %>
+          <div class="muted">Status</div><div><%= statusLabel %></div>
+          <% if (refund) { %>
+            <div class="muted">Refund</div>
+            <div>
+              <span class="status-badge" data-status="<%= refundStatusKey %>"><%= refundLabel %></span>
+              <a class="btn" style="padding:4px 8px; font-size:12px;" href="/refunds/<%= refund.id %>">View</a>
+            </div>
+          <% } %>
           <div class="muted">Payment</div><div><%= order.paymentMethod || '-' %></div>
+          <% if (isStripePayment) { %>
+            <div class="muted">Stripe Intent</div><div><%= order.stripePaymentIntentId || '-' %></div>
+          <% } %>
           <div class="muted">Shipping</div><div><%= order.deliveryType || '-' %></div>
           <div class="muted">Ship to</div><div><%= order.address || '-' %></div>
           <div class="muted">Items subtotal</div><div>$<%= itemsSubtotal.toFixed(2) %></div>
@@ -168,27 +213,67 @@ th { color:var(--muted); font-weight:700; }
         </div>
         <%
           const statusLower = (order.status || '').trim().toLowerCase();
-          const canCancel = statusLower === 'payment successful' || statusLower === 'packing';
-          const canRefund = statusLower === 'out for delivery' || statusLower === 'completed';
+          const shipLower = (order.deliveryType || '').toLowerCase();
+          const isPickup = shipLower.includes('pickup');
+          const pickupActive = (order.pickupCodeStatus || '').toLowerCase() === 'active';
+          const methodLower = (order.paymentMethod || '').toLowerCase();
+          const statusKey = statusLower.replace(/\s+/g, '_');
+          const eligibleRefund = ['payment_successful','packing','out_for_delivery','ready_for_pickup','pickup_pending'].includes(statusKey);
+          const hasRefund = !!refund;
+          const paidStatuses = ['payment successful','payment_successful','packing','out for delivery','ready for pickup','completed'];
+          const isPaid = paidStatuses.includes(statusLower);
+          const isFailed = statusLower === 'payment failed' || statusLower === 'payment_failed';
+          const isPending = statusLower === 'pending_payment';
+          const canCancel = isPending || isFailed;
+          const canRetry =
+            (isPending || isFailed) &&
+            (methodLower === 'stripe' || methodLower === 'paypal' || methodLower === 'nets-qr' || methodLower === 'nets');
+          const canRefund = false;
+          const canInvoice = isPaid;
         %>
         <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
           <a class="btn" href="/orders">Back to orders</a>
-          <a class="btn primary" href="/orders/<%= order.id %>/invoice" target="_blank">Invoice (PDF)</a>
+          <% if (canInvoice) { %>
+            <a class="btn primary" href="/orders/<%= order.id %>/invoice" target="_blank">Invoice (PDF)</a>
+          <% } %>
+          <% if (eligibleRefund && !canCancel && !hasRefund) { %>
+            <% if (statusLower === 'payment successful' || statusLower === 'payment_successful') { %>
+              <form method="POST" action="/orders/<%= order.id %>/refund" style="margin:0;">
+                <button class="btn danger" type="submit">Request refund</button>
+              </form>
+            <% } else { %>
+              <a class="btn danger" href="/refunds/request/<%= order.id %>">Request refund</a>
+            <% } %>
+          <% } %>
           <% if (canCancel) { %>
             <form method="POST" action="/orders/<%= order.id %>/cancel" style="margin:0;">
-              <button class="btn" type="submit">Cancel Order</button>
+              <button class="btn danger" type="submit">Cancel Order</button>
             </form>
-          <% } else if (canRefund) { %>
-            <a class="btn" href="/refunds/request/<%= order.id %>">Request Refund</a>
           <% } %>
           <% if ((order.status || '').trim().toLowerCase() === 'completed') { %>
             <a class="btn" href="/reviews?productId=<%= (items && items[0] && items[0].productId) ? items[0].productId : '' %>">Add review</a>
           <% } %>
+          <% if (canRetry) { %>
+            <a class="btn primary" href="/checkout">Retry payment</a>
+          <% } %>
         </div>
         <% if (canCancel) { %>
-          <div class="muted" style="margin-top:6px; font-size:12px;">Cancel is only available before delivery.</div>
-        <% } else if (canRefund) { %>
+          <div class="muted" style="margin-top:6px; font-size:12px;">Cancel is only available before payment is confirmed.</div>
+        <% } else if (eligibleRefund && !hasRefund) { %>
           <div class="muted" style="margin-top:6px; font-size:12px;">Refund requests are reviewed by admin.</div>
+        <% } else if (hasRefund) { %>
+          <div class="muted" style="margin-top:6px; font-size:12px;">Refund request submitted.</div>
+        <% } else if (statusKey === 'completed' || statusKey === 'cancelled' || statusKey === 'refunded') { %>
+          <div class="muted" style="margin-top:6px; font-size:12px;">Refund not available for completed orders.</div>
+        <% } %>
+        <% if (canRetry) { %>
+          <div class="muted" style="margin-top:6px; font-size:12px;">Payment is pending/failed. Retry to complete payment.</div>
+        <% } %>
+        <% if (isPickup && statusLower === 'ready for pickup' && pickupActive) { %>
+          <div style="margin-top:10px; padding:12px; border:1px dashed var(--border); border-radius:12px;">
+            <div style="font-weight:700;">Pickup Code: <%= order.pickupCode %></div>
+            <div class="muted" style="font-size:12px;">Show this code to staff to collect your items.</div>
+          </div>
         <% } %>
       </div>
     </div>

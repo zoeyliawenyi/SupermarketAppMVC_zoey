@@ -2,13 +2,37 @@ const connection = require('../db');
 
 const Order = {
   create: (order, cb) => {
-    const sql = 'INSERT INTO orders (userId, total, paymentMethod, deliveryType, address, status, createdAt) VALUES (?, ?, ?, ?, ?, ?, NOW())';
+    const sql = `
+      INSERT INTO orders
+      (userId, total, paymentMethod, paymentProvider, stripePaymentIntentId, deliveryType, address, pickupCode, pickupCodeStatus, pickupCodeRedeemedAt, status, createdAt)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    `;
+    if (process.env.SQL_DEBUG === '1') {
+      console.log('[sql] Order.create', sql.replace(/\s+/g, ' ').trim(), [
+        order.userId,
+        order.total,
+        order.paymentMethod,
+        order.paymentProvider || null,
+        order.stripePaymentIntentId || null,
+        order.deliveryType,
+        order.address,
+        order.pickupCode || null,
+        order.pickupCodeStatus || null,
+        order.pickupCodeRedeemedAt || null,
+        order.status || 'placed'
+      ]);
+    }
     connection.query(sql, [
       order.userId,
       order.total,
       order.paymentMethod,
+      order.paymentProvider || null,
+      order.stripePaymentIntentId || null,
       order.deliveryType,
       order.address,
+      order.pickupCode || null,
+      order.pickupCodeStatus || null,
+      order.pickupCodeRedeemedAt || null,
       order.status || 'placed'
     ], (err, result) => {
       if (err) return cb(err);
@@ -50,6 +74,53 @@ const Order = {
   updateStatus: (id, status, cb) => {
     const sql = 'UPDATE orders SET status = ? WHERE id = ?';
     connection.query(sql, [status, id], cb);
+  },
+
+  updateStripePaymentIntent: (id, stripePaymentIntentId, cb) => {
+    const sql = 'UPDATE orders SET stripePaymentIntentId = ? WHERE id = ?';
+    if (process.env.SQL_DEBUG === '1') {
+      console.log('[sql] Order.updateStripePaymentIntent', sql, [stripePaymentIntentId, id]);
+    }
+    connection.query(sql, [stripePaymentIntentId, id], cb);
+  },
+
+  updatePayPalRefs: (id, paypalOrderId, paypalCaptureId, cb) => {
+    const sql = 'UPDATE orders SET paypalOrderId = ?, paypalCaptureId = ? WHERE id = ?';
+    connection.query(sql, [paypalOrderId || null, paypalCaptureId || null, id], cb);
+  },
+
+  updateNetsRefs: (id, netsTxnRetrievalRef, netsCourseInitId, cb) => {
+    const sql = 'UPDATE orders SET netsTxnRetrievalRef = ?, netsCourseInitId = ? WHERE id = ?';
+    connection.query(sql, [netsTxnRetrievalRef || null, netsCourseInitId || null, id], cb);
+  },
+
+  findByStripePaymentIntentId: (stripePaymentIntentId, cb) => {
+    const sql = 'SELECT * FROM orders WHERE stripePaymentIntentId = ? LIMIT 1';
+    connection.query(sql, [stripePaymentIntentId], (err, rows) => {
+      if (err) return cb(err);
+      cb(null, rows && rows[0] ? rows[0] : null);
+    });
+  },
+
+  updateStatusByStripePaymentIntentId: (stripePaymentIntentId, status, cb) => {
+    const sql = 'UPDATE orders SET status = ? WHERE stripePaymentIntentId = ?';
+    connection.query(sql, [status, stripePaymentIntentId], cb);
+  },
+
+  findByPayPalOrderId: (paypalOrderId, cb) => {
+    const sql = 'SELECT * FROM orders WHERE paypalOrderId = ? LIMIT 1';
+    connection.query(sql, [paypalOrderId], (err, rows) => {
+      if (err) return cb(err);
+      cb(null, rows && rows[0] ? rows[0] : null);
+    });
+  },
+
+  findByNetsTxnRetrievalRef: (netsTxnRetrievalRef, cb) => {
+    const sql = 'SELECT * FROM orders WHERE netsTxnRetrievalRef = ? LIMIT 1';
+    connection.query(sql, [netsTxnRetrievalRef], (err, rows) => {
+      if (err) return cb(err);
+      cb(null, rows && rows[0] ? rows[0] : null);
+    });
   },
 
   findByIdWithAgg: (id, cb) => {
@@ -102,6 +173,22 @@ const Order = {
       });
       cb(null, { imgsById, imgsByName });
     }).catch(cb);
+  }
+,
+  generatePickupCode: (cb) => {
+    const makeCode = () => {
+      const num = Math.floor(100000 + Math.random() * 900000);
+      return `ZP-${num}`;
+    };
+    const tryCode = () => {
+      const code = makeCode();
+      connection.query('SELECT id FROM orders WHERE pickupCode = ? LIMIT 1', [code], (err, rows) => {
+        if (err) return cb(err);
+        if (rows && rows.length) return tryCode();
+        cb(null, code);
+      });
+    };
+    tryCode();
   }
 };
 

@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const Subscription = require('../models/Subscription');
 
 const UserController = {
     showRegister: (req, res) => {
@@ -94,10 +95,15 @@ const UserController = {
     },
 
     showAccount: (req, res) => {
-        res.render('account', { 
-            user: req.session.user, 
-            messages: req.flash('success'), 
-            errors: req.flash('error') 
+        const userId = req.session.user.id;
+        Subscription.getByUser(userId, (err, subscription) => {
+            if (err) console.error('Account subscription load error:', err);
+            res.render('account', { 
+                user: req.session.user, 
+                subscription: subscription || null,
+                messages: req.flash('success'), 
+                errors: req.flash('error') 
+            });
         });
     },
 

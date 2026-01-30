@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     address TEXT,
     contact VARCHAR(20),
+    stripeCustomerId VARCHAR(255) NULL,
     role ENUM('user', 'admin', 'deleted') DEFAULT 'user',
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -35,10 +36,23 @@ CREATE TABLE IF NOT EXISTS orders (
     userId INT,
     total DECIMAL(10, 2) NOT NULL,
     paymentMethod VARCHAR(50),
+    paymentProvider ENUM('paypal','nets','stripe') NULL,
+    paypalOrderId VARCHAR(120) NULL,
+    paypalCaptureId VARCHAR(120) NULL,
+    stripePaymentIntentId VARCHAR(255) NULL,
+    netsTxnRetrievalRef VARCHAR(120) NULL,
+    netsCourseInitId VARCHAR(120) NULL,
     deliveryType VARCHAR(50),
     address TEXT,
+    pickupCode VARCHAR(12) NULL,
+    pickupCodeStatus ENUM('active','redeemed') DEFAULT 'active',
+    pickupCodeRedeemedAt DATETIME NULL,
+    cancelledAt DATETIME NULL,
     status VARCHAR(50) DEFAULT 'placed',
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_orders_paypal (paypalOrderId),
+    INDEX idx_orders_stripe (stripePaymentIntentId),
+    INDEX idx_orders_nets (netsTxnRetrievalRef),
     FOREIGN KEY (userId) REFERENCES users(id) ON DELETE SET NULL
 );
 
@@ -137,9 +151,15 @@ CREATE TABLE IF NOT EXISTS refunds (
     note TEXT,
     evidenceImage VARCHAR(255),
     preferredMethod ENUM('original', 'wallet') NOT NULL,
-    status ENUM('requested', 'approved', 'rejected', 'initiated', 'completed', 'failed', 'manual_review') NOT NULL DEFAULT 'requested',
+    status ENUM('requested', 'approved', 'rejected', 'processing', 'refunded', 'failed', 'initiated', 'completed', 'manual_review') NOT NULL DEFAULT 'requested',
     adminId INT NULL,
     adminNote TEXT,
+    approvedAt DATETIME NULL,
+    rejectedAt DATETIME NULL,
+    rejectionReason TEXT,
+    processedAt DATETIME NULL,
+    refundedAt DATETIME NULL,
+    failedReason TEXT,
     inventoryDisposition ENUM('restock', 'dispose', 'no_return') NULL,
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -176,7 +196,7 @@ CREATE TABLE IF NOT EXISTS refund_items (
 CREATE TABLE IF NOT EXISTS refund_transactions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     refundId INT NOT NULL,
-    provider ENUM('nets', 'paypal', 'manual') NOT NULL,
+    provider ENUM('nets', 'paypal', 'stripe', 'manual') NOT NULL,
     providerRef VARCHAR(120),
     amount DECIMAL(10, 2) NOT NULL,
     currency VARCHAR(10) DEFAULT 'SGD',
@@ -186,6 +206,46 @@ CREATE TABLE IF NOT EXISTS refund_transactions (
     updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uniq_refund_provider (refundId, provider),
     FOREIGN KEY (refundId) REFERENCES refunds(id) ON DELETE CASCADE
+);
+
+-- Refund Evidence Table
+CREATE TABLE IF NOT EXISTS refund_evidence (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    refundId INT NOT NULL,
+    filePath VARCHAR(255) NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_refund_evidence_refund (refundId),
+    FOREIGN KEY (refundId) REFERENCES refunds(id) ON DELETE CASCADE
+);
+
+-- Subscriptions Table (Stripe)
+CREATE TABLE IF NOT EXISTS subscriptions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId INT NOT NULL,
+    stripeSubscriptionId VARCHAR(255) NOT NULL,
+    stripePriceId VARCHAR(255) NOT NULL,
+    stripeCustomerId VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    currentPeriodStart DATETIME NULL,
+    currentPeriodEnd DATETIME NULL,
+    cancelAtPeriodEnd TINYINT DEFAULT 0,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_sub_stripe (stripeSubscriptionId),
+    INDEX idx_sub_user (userId),
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- Usage Records Table (Stripe metered usage)
+CREATE TABLE IF NOT EXISTS usage_records (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId INT NOT NULL,
+    stripeSubscriptionItemId VARCHAR(255) NULL,
+    quantity INT NOT NULL,
+    eventType VARCHAR(50) NOT NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_usage_user (userId),
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 );
 
 

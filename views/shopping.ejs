@@ -640,7 +640,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         const category = card.dataset.category;
         const dietary = card.dataset.dietary;
 
-        const matchesSearch = q ? (name.includes(q) || category.includes(q) || dietary.includes(q)) : true;
+        const matchesSearch = q ? name.startsWith(q) : true;
         const matchesCategory = cat ? category === cat : true;
         const matchesDietary = diet ? dietary === diet : true;
         return matchesSearch && matchesCategory && matchesDietary;

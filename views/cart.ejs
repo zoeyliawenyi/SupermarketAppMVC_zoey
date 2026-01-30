@@ -425,7 +425,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
           <table class="cart-table">
             <thead>
               <tr>
-                <th><input type="checkbox" id="checkAllTop" class="row-check" checked></th>
+                <th></th>
                 <th>Product</th>
                 <th>Image</th>
                 <th>Quantity</th>
@@ -472,7 +472,6 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
     (function(){
       const rows = Array.from(document.querySelectorAll('tbody tr'));
       const totalEl = document.getElementById('cartTotal');
-      const checkAllTop = document.getElementById('checkAllTop');
       const checkAllBottom = document.getElementById('checkAllBottom');
       const checkoutBtn = document.getElementById('checkoutBtn');
 
@@ -489,8 +488,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       function syncChecks() {
         const items = rows.map(r => r.querySelector('.item-check'));
         const allChecked = items.every(c => c.checked);
-        checkAllTop.checked = allChecked;
-        checkAllBottom.checked = allChecked;
+        if (checkAllBottom) checkAllBottom.checked = allChecked;
         recalc();
       }
 
@@ -547,7 +545,8 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
         recalc();
       }
 
-      checkAllTop.addEventListener('change', () => toggleAll(checkAllTop.checked));
+      const topCheck = document.getElementById('checkAllTop');
+      if (topCheck) topCheck.addEventListener('change', () => toggleAll(topCheck.checked));
       checkAllBottom.addEventListener('change', () => toggleAll(checkAllBottom.checked));
 
       checkoutBtn.addEventListener('click', async () => {

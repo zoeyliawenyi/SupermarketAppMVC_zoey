@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Membership Plans</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+:root { --text:#1f2430; --muted:#6b7280; --border:#e5e7eb; --shadow:0 12px 30px rgba(17,24,39,0.08); --radius:16px; --accent:#ff5c8a; --accent2:#ff8fb1; }
+body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff); color:var(--text); }
+.shell { max-width: 1080px; margin: 0 auto; padding: 20px; }
+.nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; box-shadow:var(--shadow); margin-bottom:14px; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+.brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,var(--accent),var(--accent2)); box-shadow:0 0 10px rgba(255,92,138,0.6); }
+.nav-links { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.nav-links a { padding:8px 14px; border-radius:10px; color:var(--text); font-weight:500; text-decoration:none; }
+.nav-links a:hover { background: rgba(255,92,138,0.12); }
+.card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px; margin:14px auto 0; }
+.plan-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
+.plan { border:1px solid var(--border); border-radius:14px; padding:16px; display:grid; gap:10px; }
+.plan h3 { margin:0; }
+.badge { display:inline-block; padding:4px 10px; border-radius:999px; background:#ffe4ea; color:#b9102c; font-size:12px; font-weight:700; }
+.cta { padding:12px 16px; border:none; border-radius:12px; font-weight:600; cursor:pointer; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); color:#fff; }
+.muted { color:var(--muted); }
+.alert { padding:10px 12px; border-radius:10px; background:#fef2f2; color:#991b1b; border:1px solid #fecaca; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand"><span class="dot"></span>ZozoMart</div>
+      <div class="nav-links">
+        <a href="/shopping">Home</a>
+        <a href="/favorites">Favorites</a>
+        <a href="/orders">My Orders</a>
+        <a href="/account">My Account</a>
+      </div>
+    </nav>
+
+    <div class="card">
+      <h2 style="margin:0 0 6px;">Membership Plans</h2>
+      <p class="muted" style="margin:0 0 12px;">Subscribe to unlock member perks.</p>
+      <% if (canceled) { %>
+        <div class="alert">Checkout cancelled. You can try again anytime.</div>
+      <% } %>
+      <div class="plan-grid">
+        <% plans.forEach(function(plan){ %>
+          <div class="plan">
+            <span class="badge">Popular</span>
+            <h3><%= plan.name %></h3>
+            <p class="muted" style="margin:0;"> <%= plan.description %></p>
+            <div style="font-size:20px; font-weight:700;"><%= plan.priceLabel %></div>
+            <ul style="margin:0; padding-left:18px; color:#374151;">
+              <% (plan.features || []).forEach(function(f){ %>
+                <li><%= f %></li>
+              <% }) %>
+            </ul>
+            <button class="cta" type="button" data-price="<%= plan.priceId %>" <%= plan.priceId ? '' : 'disabled' %>>Subscribe with Stripe</button>
+            <% if (!plan.priceId) { %>
+              <div class="muted" style="font-size:12px;">Set STRIPE_PRICE_ZOZOPLUS in .env</div>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.querySelectorAll('button[data-price]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const priceId = btn.getAttribute('data-price');
+        if (!priceId) return;
+        btn.disabled = true;
+        try {
+          const res = await fetch('/subscriptions/stripe/checkout-session', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ priceId })
+          });
+          const data = await res.json();
+          if (!data?.success || !data.url) {
+            throw new Error(data?.message || 'Unable to start checkout.');
+          }
+          window.location.href = data.url;
+        } catch (err) {
+          alert(err.message || 'Unable to start Stripe checkout.');
+        } finally {
+          btn.disabled = false;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

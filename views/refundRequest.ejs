@@ -32,7 +32,7 @@
 
     <div class="card">
       <h2>Refund Request for Order #<%= order.id %></h2>
-      <form method="POST" action="/refunds/request">
+      <form method="POST" action="/refunds/request" enctype="multipart/form-data">
         <input type="hidden" name="orderId" value="<%= order.id %>">
         <div style="display:grid; gap:12px; margin-bottom:16px;">
           <div>
@@ -47,11 +47,8 @@
             </select>
           </div>
           <div>
-            <label>Preferred method</label>
-            <select name="preferredMethod">
-              <option value="original">Original payment method</option>
-              <option value="wallet">Wallet credit</option>
-            </select>
+            <label>Refund method</label>
+            <div class="input" style="background:#f9fafb;"><%= order.paymentMethod || 'Original payment method' %> (original)</div>
           </div>
           <div>
             <label>Reason</label>
@@ -71,8 +68,9 @@
             <textarea class="input" name="note" rows="3"></textarea>
           </div>
           <div>
-            <label>Evidence image URL (optional)</label>
-            <input class="input" name="evidenceImage" placeholder="https://...">
+            <label>Evidence images (optional, up to 3)</label>
+            <input class="input" type="file" name="evidenceImages" accept="image/jpeg,image/png,image/webp" multiple>
+            <div class="muted" style="margin-top:6px; font-size:12px;">Max 2MB each. JPG/PNG/WEBP only.</div>
           </div>
         </div>
 

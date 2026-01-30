@@ -6,27 +6,61 @@
   <title>ZozoMart | Refund Admin</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
-    body { font-family:'Poppins',sans-serif; margin:0; background:#f6f7fb; color:#111827; }
+    :root {
+      --bg: #ffffff;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --border: #e5e7eb;
+      --shadow: 0 12px 30px rgba(17, 24, 39, 0.08);
+      --radius: 14px;
+    }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff); color: var(--text); }
     .shell { max-width: 1200px; margin: 0 auto; padding: 24px; }
-    .nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:10px 14px; box-shadow:0 10px 30px rgba(0,0,0,0.08); }
+    .nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px 18px; box-shadow:var(--shadow); }
     .brand { display:flex; align-items:center; gap:10px; font-weight:700; }
-    .brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); }
+    .brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); box-shadow: 0 0 10px rgba(255,92,138,0.6); }
     .nav-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
-    .nav-links a { padding:8px 14px; border-radius:10px; color:#111827; font-weight:500; text-decoration:none; }
-    .card { background:#fff; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); margin-top:20px; }
+    .nav-links a { padding:8px 12px; border-radius:10px; color:var(--text); font-weight:500; text-decoration:none; }
+    .user-menu { position: relative; }
+    .user-menu summary { list-style:none; cursor:pointer; padding:8px 12px; border-radius:10px; }
+    .user-menu[open] summary, .user-menu summary:hover { background: rgba(255,92,138,0.08); }
+    .user-menu .dropdown { position:absolute; right:0; top:110%; background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow: var(--shadow); min-width:140px; padding:8px 0; z-index:20; }
+    .user-menu .dropdown a { display:block; padding:8px 12px; color:var(--text); text-decoration:none; }
+    .user-menu .dropdown a:hover { background: rgba(255,92,138,0.08); }
+    .card { background: var(--card); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding:24px; margin-top:20px; }
     table { width:100%; border-collapse: collapse; }
-    th, td { text-align:left; padding:10px; border-bottom:1px solid #e5e7eb; }
+    th, td { text-align:left; padding:10px; border-bottom:1px solid var(--border); }
     .filter { display:flex; gap:10px; align-items:center; margin-bottom:12px; }
+    .status-chip { padding:6px 10px; border-radius:999px; font-weight:600; font-size:12px; display:inline-block; background:#e5e7eb; color:#374151; }
+    .status-chip[data-status="requested"] { background: rgba(59,130,246,0.16); color:#1d4ed8; }
+    .status-chip[data-status="approved"] { background: rgba(16,185,129,0.18); color:#047857; }
+    .status-chip[data-status="rejected"] { background: rgba(239,68,68,0.18); color:#b91c1c; }
+    .status-chip[data-status="processing"] { background: rgba(234,179,8,0.2); color:#92400e; }
+    .status-chip[data-status="refunded"] { background: rgba(124,58,237,0.16); color:#6d28d9; }
+    .status-chip[data-status="completed"] { background: rgba(124,58,237,0.16); color:#6d28d9; }
+    .status-chip[data-status="failed"] { background: rgba(239,68,68,0.18); color:#b91c1c; }
+    .badge { display:inline-block; margin-left:8px; padding:4px 8px; border-radius:999px; font-size:11px; background:#fee2e2; color:#991b1b; font-weight:600; }
+    .btn { display:inline-block; padding:8px 12px; border-radius:10px; border:1px solid #e5e7eb; text-decoration:none; color:#111827; font-weight:600; }
   </style>
 </head>
 <body>
   <div class="shell">
     <nav class="nav">
-      <div class="brand"><span class="dot"></span>ZozoMart Admin</div>
+      <div class="brand"><span class="dot"></span>ZozoMart</div>
       <div class="nav-links">
         <a href="/admin/dashboard">Dashboard</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/admin/users">Users</a>
         <a href="/admin/orders">Orders</a>
-        <a href="/admin/refunds">Refunds</a>
+        <a href="/admin/reviews">Reviews</a>
+        <details class="user-menu">
+          <summary>User: <%= user.username %> v</summary>
+          <div class="dropdown">
+            <a href="/logout">Logout</a>
+          </div>
+        </details>
       </div>
     </nav>
 
@@ -39,35 +73,54 @@
           <option value="requested" <%= status === 'requested' ? 'selected' : '' %>>Requested</option>
           <option value="approved" <%= status === 'approved' ? 'selected' : '' %>>Approved</option>
           <option value="rejected" <%= status === 'rejected' ? 'selected' : '' %>>Rejected</option>
-          <option value="initiated" <%= status === 'initiated' ? 'selected' : '' %>>Initiated</option>
-          <option value="completed" <%= status === 'completed' ? 'selected' : '' %>>Completed</option>
+          <option value="processing" <%= status === 'processing' ? 'selected' : '' %>>Processing</option>
+          <option value="refunded" <%= status === 'refunded' ? 'selected' : '' %>>Refunded</option>
           <option value="failed" <%= status === 'failed' ? 'selected' : '' %>>Failed</option>
-          <option value="manual_review" <%= status === 'manual_review' ? 'selected' : '' %>>Manual Review</option>
         </select>
         <button type="submit">Filter</button>
       </form>
       <table>
         <thead>
           <tr>
-            <th>ID</th>
+            <th>Refund</th>
             <th>User</th>
             <th>Order</th>
-            <th>Status</th>
+            <th>Payment</th>
+            <th>Mode</th>
             <th>Reason</th>
+            <th>Requested</th>
+            <th>Status</th>
+            <th>Created</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <% if (!refunds || !refunds.length) { %>
-            <tr><td colspan="6">No refund requests found.</td></tr>
+            <tr><td colspan="10">No refund requests found.</td></tr>
           <% } else { refunds.forEach(r => { %>
+            <% const orderTotal = Number(r.orderTotal || 0); %>
+            <% const requestedAmount = Number(r.requestedAmount || 0); %>
+            <% const mode = orderTotal > 0 && requestedAmount >= (orderTotal - 0.01) ? 'Full' : 'Partial'; %>
+            <% const reasonKey = (r.refundType === 'cancellation_refund') ? 'cancellation' : (r.reason || '').toLowerCase(); %>
+            <% const reasonLabels = { cancellation:'Cancellation', missing_item:'Missing item', wrong_item:'Wrong item', damaged:'Damaged', spoiled:'Spoiled', expired:'Expired', late_delivery:'Late delivery', pricing_promo_issue:'Pricing/promo issue', changed_mind:'Changed mind' }; %>
+            <% const reasonLabel = reasonLabels[reasonKey] || (r.reason || 'Other'); %>
+            <% const statusKey = (r.status || '').toLowerCase(); %>
             <tr>
               <td>#<%= r.id %></td>
               <td><%= r.username %></td>
               <td>#<%= r.orderId %></td>
-              <td><%= r.status %></td>
-              <td><%= r.reason %></td>
-              <td><a href="/admin/refunds/<%= r.id %>">View</a></td>
+              <td><%= (r.paymentMethod || r.paymentProvider || 'original') %></td>
+              <td><%= mode %></td>
+              <td><%= reasonLabel %></td>
+              <td>$<%= Number(r.requestedAmount || 0).toFixed(2) %></td>
+              <td>
+                <span class="status-chip" data-status="<%= statusKey %>"><%= statusKey === 'refunded' ? 'completed' : r.status %></span>
+                <% if (statusKey === 'requested') { %>
+                  <span class="badge">Action needed</span>
+                <% } %>
+              </td>
+              <td><%= new Date(r.createdAt).toLocaleString() %></td>
+              <td><a class="btn" href="/admin/refunds/<%= r.id %>">View</a></td>
             </tr>
           <% }) } %>
         </tbody>
@@ -76,3 +129,6 @@
   </div>
 </body>
 </html>
+
+
+

@@ -40,10 +40,21 @@
       <h2>Refund #<%= refund.id %></h2>
       <p>Status: <span class="pill <%= refund.status %>"><%= refund.status %></span></p>
       <p>Reason: <%= refund.reason %></p>
-      <p>Preferred method: <%= refund.preferredMethod %></p>
-      <% if (refund.evidenceImage) { %>
-        <p><a href="<%= refund.evidenceImage %>" target="_blank">View evidence</a></p>
-      <% } %>
+      <p>Refund method: <%= refund.paymentMethod || 'original' %> (original)</p>
+      <div style="margin-top:10px;">
+        <strong>Evidence</strong>
+        <% if (evidence && evidence.length) { %>
+          <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:8px;">
+            <% evidence.forEach(function(p){ %>
+              <a href="/<%= p %>" target="_blank">
+                <img src="/<%= p %>" alt="evidence" style="width:80px; height:80px; object-fit:cover; border-radius:10px; border:1px solid #e5e7eb;">
+              </a>
+            <% }) %>
+          </div>
+        <% } else { %>
+          <p class="muted" style="margin-top:6px;">No evidence provided.</p>
+        <% } %>
+      </div>
     </div>
 
     <div class="card">

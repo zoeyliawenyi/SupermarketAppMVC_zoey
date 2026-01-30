@@ -7,18 +7,25 @@
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
     * { box-sizing: border-box; }
-    body { font-family:'Roboto',sans-serif; margin:0; padding:24px; color:#111; background:#f9fafb; }
-    .invoice { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; max-width:900px; margin:0 auto; box-shadow:0 8px 24px rgba(0,0,0,0.06); }
-    .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid #e5e7eb; padding-bottom:14px; }
-    .brand { font-weight:700; font-size:22px; }
-    .meta { text-align:right; font-size:12px; color:#555; }
-    h2 { margin:14px 0 6px; }
+    body { font-family:'Roboto',sans-serif; margin:0; padding:28px; color:#111827; background:#f4f6fb; }
+    .invoice { background:#fff; border:1px solid #e5e7eb; border-radius:16px; padding:26px; max-width:960px; margin:0 auto; box-shadow:0 12px 30px rgba(15,23,42,0.08); }
+    .header { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; border-bottom:1px solid #e5e7eb; padding-bottom:16px; }
+    .brand { font-weight:700; font-size:24px; letter-spacing:0.4px; }
+    .tag { display:inline-block; margin-top:8px; padding:4px 10px; border-radius:999px; background:#fce7f3; color:#9d174d; font-size:11px; font-weight:700; text-transform:uppercase; }
+    .meta { text-align:right; font-size:12px; color:#4b5563; display:grid; gap:4px; }
+    .meta strong { color:#111827; }
+    h2 { margin:18px 0 8px; font-size:18px; }
     table { width:100%; border-collapse:collapse; margin-top:12px; }
-    th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; font-size:14px; }
-    th { background:#f3f4f6; font-weight:700; }
+    th, td { padding:10px; border-bottom:1px solid #e5e7eb; text-align:left; font-size:13px; }
+    th { background:#f3f4f6; font-weight:700; text-transform:uppercase; letter-spacing:0.4px; font-size:12px; color:#374151; }
     .totals td { font-weight:700; }
-    .foot { margin-top:18px; font-size:12px; color:#666; text-align:center; }
-    .addr { font-size:13px; line-height:1.5; }
+    .foot { margin-top:18px; font-size:12px; color:#6b7280; text-align:center; }
+    .addr { font-size:13px; line-height:1.6; color:#374151; }
+    .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:14px; margin-top:16px; }
+    .card { border:1px solid #e5e7eb; border-radius:12px; padding:12px; background:#fafafa; }
+    .label { font-size:11px; text-transform:uppercase; letter-spacing:0.4px; color:#6b7280; font-weight:700; margin-bottom:6px; }
+    .value { font-size:13px; color:#111827; }
+    .muted { color:#6b7280; }
   </style>
 </head>
 <body onload="window.print()">
@@ -26,6 +33,7 @@
     <div class="header">
       <div>
         <div class="brand">ZozoMart</div>
+        <div class="tag">Official Invoice</div>
         <div class="addr">
           123 Market Street<br>
           Singapore 123456<br>
@@ -33,26 +41,51 @@
         </div>
       </div>
       <div class="meta">
-        <div><strong>Invoice #</strong> <%= order.id %></div>
+        <div><strong>Invoice #</strong> INV-<%= order.id %></div>
+        <div><strong>Order #</strong> <%= order.id %></div>
         <div><strong>Date</strong> <%= order.createdAt ? (order.createdAt.toLocaleString ? order.createdAt.toLocaleString() : order.createdAt) : '' %></div>
         <div><strong>Payment</strong> <%= order.paymentMethod || '-' %></div>
-        <div><strong>Shipping</strong> <%= order.deliveryType || '-' %></div>
         <div><strong>Status</strong> <%= order.status || 'placed' %></div>
+        <div><strong>Currency</strong> SGD</div>
       </div>
     </div>
 
-    <div style="display:flex; gap:20px; margin-top:14px; flex-wrap:wrap;">
-      <div style="flex:1;">
-        <h3 style="margin:0 0 6px;">Bill To</h3>
+    <div class="grid">
+      <div class="card">
+        <div class="label">Bill To</div>
         <div class="addr">
           <%= user && user.username ? user.username : 'Customer' %><br>
+          <%= user && user.email ? user.email : '' %><br>
+          <%= user && user.contact ? user.contact : '' %>
+        </div>
+      </div>
+      <div class="card">
+        <div class="label">Ship To</div>
+        <div class="addr">
           <%= order.address || 'No address provided' %>
         </div>
       </div>
-      <div style="flex:1;">
-        <h3 style="margin:0 0 6px;">Ship To</h3>
-        <div class="addr">
-          <%= order.address || 'No address provided' %>
+      <div class="card">
+        <div class="label">Order Details</div>
+        <div class="value"><strong>Shipping</strong>: <%= order.deliveryType || '-' %></div>
+        <% if ((order.deliveryType || '').toLowerCase().includes('pickup')) { %>
+          <div class="value"><strong>Pickup code</strong>: <%= order.pickupCode || '-' %></div>
+        <% } %>
+        <div class="value"><strong>Items</strong>: <%= items ? items.length : 0 %></div>
+      </div>
+      <div class="card">
+        <div class="label">Payment Reference</div>
+        <div class="value">
+          <% if ((order.paymentMethod || '').toLowerCase() === 'paypal') { %>
+            PayPal Order: <%= order.paypalOrderId || '-' %><br>
+            Capture: <%= order.paypalCaptureId || '-' %>
+          <% } else if ((order.paymentMethod || '').toLowerCase() === 'stripe') { %>
+            Stripe Intent: <%= order.stripePaymentIntentId || '-' %>
+          <% } else if ((order.paymentMethod || '').toLowerCase() === 'nets-qr') { %>
+            NETS Ref: <%= order.netsTxnRetrievalRef || '-' %>
+          <% } else { %>
+            <span class="muted">No external reference</span>
+          <% } %>
         </div>
       </div>
     </div>
@@ -83,7 +116,7 @@
       </tbody>
     </table>
 
-    <table style="margin-top:10px;">
+    <table style="margin-top:12px;">
       <tbody class="totals">
         <tr>
           <td style="text-align:right;">Items subtotal</td>
@@ -100,7 +133,7 @@
       </tbody>
     </table>
 
-    <div class="foot">Thank you for shopping with ZozoMart.</div>
+    <div class="foot">Thank you for shopping with ZozoMart. If you have any questions about this invoice, contact support@zozomart.com.</div>
   </div>
 </body>
 </html>

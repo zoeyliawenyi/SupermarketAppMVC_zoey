@@ -67,7 +67,7 @@ a:hover { color: #ff3d77; }
 .cart-link { position: relative; display: inline-flex; align-items: center; gap: 6px; }
 .cart-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px; padding: 2px 6px; border-radius: 999px; background: #16804a; color: #fff; font-size: 12px; font-weight: 700; }
 
-.grid-2 { display: grid; grid-template-columns: 2fr 1.1fr; gap: 16px; }
+.grid-2 { display: grid; grid-template-columns: 2fr 1.2fr; gap: 16px; }
 .card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; }
 
 .section-title { margin: 0 0 6px; font-size: 18px; }
@@ -78,8 +78,29 @@ a:hover { color: #ff3d77; }
 
 .option-list { display: grid; gap: 10px; }
 .option-item { display: flex; align-items: center; gap: 10px; }
+.section-card { border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: #fff; }
+.section-card .section-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6px 14px; background: linear-gradient(135deg, var(--accent), var(--accent-2)); color:#fff; font-weight:600; }
+.summary-card .section-head { padding:10px 16px; font-size:18px; }
+.summary-card .section-body { font-size:16px; }
+.section-head-actions { display:flex; align-items:center; gap:8px; }
+.edit-btn.light { color:#fff; }
+.section-card .section-body { padding:14px; display:grid; gap:12px; }
+.payment-grid { display:grid; gap:10px; }
+.payment-card { border:1px solid var(--border); border-radius:12px; padding:12px; display:flex; align-items:center; justify-content:space-between; gap:10px; background:#fff; }
+.payment-card .left { display:flex; align-items:center; gap:10px; }
+.brand-pill { padding:6px 10px; border-radius:8px; font-weight:700; font-size:12px; background:#f3f4f6; }
+.payment-note { font-size:12px; color:var(--muted); }
+.paypal-section { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+#paypal-button-container { margin-top: 8px; }
+.stripe-section { margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
+#stripe-card-element { padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.payment-disabled { opacity: 0.55; filter: grayscale(0.25); pointer-events: none; }
+.payment-placeholder { height: 48px; border:1px dashed var(--border); border-radius:12px; background: #f9fafb; }
+.cta.secondary.light { background: rgba(255, 92, 138, 0.12); border-color: rgba(255, 92, 138, 0.35); color: #b9102c; }
+.cart-box { display:grid; gap:10px; }
+.cart-item-row { display:flex; gap:10px; align-items:center; }
 
-.summary-row { display: flex; justify-content: space-between; margin: 6px 0; }
+.summary-row { display: flex; justify-content: space-between; margin: 10px 0; font-size: 15px; }
 .divider { border-top: 1px solid var(--border); margin: 10px 0; }
 
 .cta {
@@ -124,7 +145,6 @@ a:hover { color: #ff3d77; }
 
 .btn-group { display: flex; gap: 10px; flex-wrap: wrap; }
 
-.paypal-section { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
 #paypal-button-container { margin-top: 8px; }
 
 .modal-backdrop {
@@ -189,112 +209,129 @@ a:hover { color: #ff3d77; }
       </div>
 
       <div class="grid-2">
-        <div class="card">
-          <h3 class="section-title">Shipping details</h3>
-          <div class="shipping-box">
-            <div>
-              <div style="font-weight:700;"><%= user.username %></div>
-              <div class="muted" id="shipContact"><%= shipping.contact || 'No contact saved' %></div>
-              <div class="muted" id="shipAddress"><%= shipping.address || 'No address saved' %></div>
-            </div>
-            <button class="edit-btn" id="editShipping" type="button">✏️</button>
-          </div>
-
-          <h3 class="section-title" style="margin-top:16px;">Shipping option</h3>
-          <div class="card" style="box-shadow:none; border:1px solid var(--border);">
-            <div class="option-list">
-              <label class="option-item">
-                <input type="radio" name="shipOption" value="pickup" data-cost="0" <%= shipping.option === 'pickup' ? 'checked' : '' %>>
-                <span>Store pickup - $0.00</span>
-              </label>
-              <label class="option-item">
-                <input type="radio" name="shipOption" value="delivery" data-cost="2" <%= shipping.option === 'delivery' ? 'checked' : '' %>>
-                <span>Doorstep delivery - $2.00</span>
-              </label>
+          <div class="card">
+            <div class="section-card">
+              <div class="section-head">
+                <span>Shipping details</span>
+              </div>
+              <div class="section-body">
+                <div class="shipping-box">
+                  <div>
+                    <div style="font-weight:700;"><%= user.username %></div>
+                  <div class="muted" id="shipContact"><%= shipping.contact || 'No contact saved' %></div>
+                  <div class="muted" id="shipAddress"><%= shipping.address || 'No address saved' %></div>
+                </div>
+                <button class="edit-btn" id="editShipping" type="button">✏️</button>
+              </div>
             </div>
           </div>
 
-          <h3 class="section-title" style="margin-top:16px;">Payment method</h3>
-          <div class="card" style="box-shadow:none; border:1px solid var(--border);">
+            <div class="section-card" style="margin-top:16px;">
+            <div class="section-head">
+              <span>Shipping option</span>
+            </div>
+            <div class="section-body">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                <div id="shipOptionSummary" class="muted hidden" style="font-weight:600;"></div>
+                <button class="edit-btn hidden" id="editShipOption" type="button">✏️</button>
+              </div>
               <div class="option-list">
                 <label class="option-item">
-                  <input type="radio" name="paymentMethod" value="nets-qr" <%= shipping.payment === 'nets-qr' ? 'checked' : '' %>>
-                  <span>NETS QR</span>
+                  <input type="radio" name="shipOption" value="pickup" data-cost="0" <%= shipping.option === 'pickup' ? 'checked' : '' %>>
+                  <span>Store pickup - $0.00</span>
                 </label>
                 <label class="option-item">
-                  <input type="radio" name="paymentMethod" value="card" <%= shipping.payment === 'card' ? 'checked' : '' %>>
-                  <span>Credit/Debit Card</span>
-                </label>
-                <label class="option-item">
-                  <input type="radio" name="paymentMethod" value="paypal" <%= shipping.payment === 'paypal' ? 'checked' : '' %>>
-                  <span>PayPal</span>
+                  <input type="radio" name="shipOption" value="delivery" data-cost="2" <%= shipping.option === 'delivery' ? 'checked' : '' %>>
+                  <span>Doorstep delivery - $2.00</span>
                 </label>
               </div>
-            <div id="cardFields" class="<%= shipping.payment === 'card' ? '' : 'hidden' %> card-form" style="margin-top:10px;">
-              <div>
-                <label style="font-weight:600; margin-bottom:4px; display:block;">Card number</label>
-                <input class="input" type="text" id="cardNumber" placeholder="16 digits" maxlength="16" pattern="[0-9]{16}" title="Card number must be 16 digits" autocomplete="off" inputmode="numeric" value="<%= (cardDraft.cardNumber || '') %>">
+              <button class="cta secondary light" type="button" id="continueToPayment" disabled>Continue to payment</button>
+            </div>
+          </div>
+
+          <div class="section-card payment-disabled" id="paymentSection" style="margin-top:16px;">
+            <div class="section-head">
+              <span>Payment method</span>
+              <div class="section-head-actions">
+                <button class="edit-btn light hidden" id="editPayment" type="button">✏️</button>
               </div>
-              <div class="card-form-row">
-                <div>
-                  <label style="font-weight:600; margin-bottom:4px; display:block;">Expiry (MM/YY)</label>
-                  <div style="display:flex; gap:8px;">
-                    <select class="input" id="cardExpMonth" autocomplete="off">
-                      <% for(let m=1;m<=12;m++){ const mm = m.toString().padStart(2,'0'); %>
-                        <option value="<%= mm %>" <%= (cardDraft.cardMonth === mm) ? 'selected' : '' %>><%= mm %></option>
-                      <% } %>
-                    </select>
-                    <select class="input" id="cardExpYear" autocomplete="off">
-                      <% const yearNow = new Date().getFullYear(); for(let y=0;y<10;y++){ const yr = yearNow + y; %>
-                        <option value="<%= yr %>" <%= (String(cardDraft.cardYear) === String(yr)) ? 'selected' : '' %>><%= yr %></option>
-                      <% } %>
-                    </select>
+            </div>
+            <div class="section-body">
+              <div class="payment-placeholder" id="paymentPlaceholder"></div>
+              <div class="payment-grid hidden" id="paymentMethods">
+                <label class="payment-card">
+                  <div class="left">
+                    <span class="brand-pill">NETS</span>
+                    <div>
+                      <div style="font-weight:700;">NETS QR</div>
+                      <div class="payment-note">Scan to pay</div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <label style="font-weight:600; margin-bottom:4px; display:block;">CVV</label>
-                  <input class="input" type="text" id="cardCvv" placeholder="3 digits" maxlength="3" pattern="[0-9]{3}" title="CVV must be 3 digits" autocomplete="off" inputmode="numeric" value="<%= (cardDraft.cardCvv || '') %>">
-                </div>
+                  <input type="radio" name="paymentMethod" value="nets-qr" <%= shipping.payment === 'nets-qr' ? 'checked' : '' %>>
+                </label>
+                <label class="payment-card">
+                  <div class="left">
+                    <span class="brand-pill">Stripe</span>
+                    <div>
+                      <div style="font-weight:700;">Stripe</div>
+                      <div class="payment-note">Pay with card (Stripe)</div>
+                    </div>
+                  </div>
+                  <input type="radio" name="paymentMethod" value="stripe" <%= shipping.payment === 'stripe' ? 'checked' : '' %>>
+                </label>
+                <label class="payment-card">
+                  <div class="left">
+                    <span class="brand-pill">PayPal</span>
+                    <div>
+                      <div style="font-weight:700;">PayPal</div>
+                      <div class="payment-note">Pay securely with PayPal</div>
+                    </div>
+                  </div>
+                  <input type="radio" name="paymentMethod" value="paypal" <%= shipping.payment === 'paypal' ? 'checked' : '' %>>
+                </label>
               </div>
-              <div>
-                <label style="font-weight:600; margin-bottom:4px; display:block;">Name on card</label>
-                <input class="input" type="text" id="cardName" placeholder="As on card" autocomplete="off" value="<%= (cardDraft.cardName || '') %>">
+              <div class="paypal-section hidden" id="paypalSection">
+                <h4 class="section-title" style="margin-top:0;">Pay with PayPal</h4>
+                <div class="payment-note">You will be redirected to PayPal to approve the payment.</div>
               </div>
-              <div>
-                <label style="font-weight:600; margin-bottom:4px; display:block;">Billing address</label>
-                <textarea class="input" id="cardBilling" autocomplete="off"><%= cardDraft.cardBilling || shipping.address || '' %></textarea>
+              <div class="stripe-section hidden" id="stripeSection">
+                <h4 class="section-title" style="margin-top:0;">Pay with Stripe</h4>
+                <div id="stripe-card-element"></div>
+                <div id="stripeError" class="payment-note" style="margin-top:6px;"></div>
               </div>
             </div>
           </div>
         </div>
 
-        <div class="card">
-          <h3 class="section-title">Order summary</h3>
-          <div>
-            <% cart.forEach(function(item){ %>
-              <div style="display:flex; gap:10px; align-items:center; margin-bottom:10px;">
-                <img src="/images/<%= item.image %>" alt="<%= item.productName %>" style="width:54px; height:54px; object-fit:cover; border-radius:10px; border:1px solid var(--border);">
-                <div style="flex:1;">
-                  <div style="font-weight:700;"><%= item.productName %></div>
-                  <div class="muted">Qty: <%= item.quantity %></div>
-                </div>
-                <div style="font-weight:700;">$ <%= (item.price * item.quantity).toFixed(2) %></div>
+        <div class="card" style="height:100%;">
+          <div class="section-card summary-card" style="min-height:100%; display:flex; flex-direction:column;">
+            <div class="section-head">Order summary</div>
+            <div class="section-body" style="display:flex; flex-direction:column; flex:1; gap:14px;">
+              <div style="display:grid; gap:12px; font-size:15px;">
+                <% cart.forEach(function(item){ %>
+                  <div class="cart-item-row">
+                    <img src="/images/<%= item.image %>" alt="<%= item.productName %>" style="width:56px; height:56px; object-fit:cover; border-radius:12px; border:1px solid var(--border);">
+                    <div style="flex:1;">
+                      <div style="font-weight:700; font-size:16px;"><%= item.productName %></div>
+                      <div class="muted" style="font-size:14px;">Qty: <%= item.quantity %></div>
+                    </div>
+                    <div style="font-weight:700; font-size:16px;">$ <%= (item.price * item.quantity).toFixed(2) %></div>
+                  </div>
+                <% }) %>
               </div>
-            <% }) %>
-          </div>
-          <div class="divider"></div>
-          <div class="summary-row"><span>Total quantity</span><span><%= totalQuantity %></span></div>
-          <div class="summary-row"><span>Subtotal</span><span>$ <%= subtotal.toFixed(2) %></span></div>
-          <div class="summary-row"><span>Shipping</span><span id="shipCostTxt">$ <%= shippingCost.toFixed(2) %></span></div>
-          <div class="divider"></div>
-          <div class="summary-row" style="font-weight:700; font-size:18px;"><span>Total</span><span id="totalTxt">$ <%= total.toFixed(2) %></span></div>
-          <div class="btn-group" style="margin-top:14px;">
-            <button class="cta" type="button" id="placeOrderBtn">Place order</button>
-            <a class="cta secondary" href="/cart">Back to cart</a>
-          </div>
-          <div class="paypal-section hidden">
-            <h4 class="section-title" style="margin-top:0;">Pay with PayPal</h4>
-            <div id="paypal-button-container"></div>
+              <div class="divider"></div>
+              <div style="display:grid; gap:2px;">
+                <div class="summary-row"><span>Total quantity</span><span><%= totalQuantity %></span></div>
+                <div class="summary-row"><span>Subtotal</span><span>$ <%= subtotal.toFixed(2) %></span></div>
+                <div class="summary-row"><span>Shipping</span><span id="shipCostTxt">$ <%= shippingCost.toFixed(2) %></span></div>
+              </div>
+              <div class="divider"></div>
+              <div class="summary-row" style="font-weight:700; font-size:20px;"><span>Total</span><span id="totalTxt">$ <%= total.toFixed(2) %></span></div>
+              <div class="btn-group" style="margin-top:auto;">
+                <button class="cta" type="button" id="placeOrderBtn">Place order</button>
+                <a class="cta secondary" href="/cart">Back to cart</a>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -315,17 +352,41 @@ a:hover { color: #ff3d77; }
     </div>
   </div>
 
-  <script src="https://www.paypal.com/sdk/js?client-id=<%= (process.env.PAYPAL_CLIENT_ID || '').trim() %>&currency=SGD"></script>
+  <script src="https://js.stripe.com/v3/"></script>
   <script>
     (function(){
       const shipCostTxt = document.getElementById('shipCostTxt');
       const totalTxt = document.getElementById('totalTxt');
       const subtotalVal = <%= subtotal %>;
-      const cardFields = document.getElementById('cardFields');
-      const paypalSection = document.querySelector('.paypal-section');
-      const paypalContainer = document.getElementById('paypal-button-container');
+      const paypalSection = document.getElementById('paypalSection');
+      const stripeSection = document.getElementById('stripeSection');
+      const stripePayBtn = document.getElementById('stripePayBtn');
+      const stripeError = document.getElementById('stripeError');
       const placeOrderBtn = document.getElementById('placeOrderBtn');
-      let paypalRenderTimeout = null;
+      const paymentRadios = Array.from(document.querySelectorAll('input[name="paymentMethod"]'));
+      const shipOptionRadios = Array.from(document.querySelectorAll('input[name="shipOption"]'));
+      const paymentSection = document.getElementById('paymentSection');
+      const continueBtn = document.getElementById('continueToPayment');
+      const editShipOption = document.getElementById('editShipOption');
+      const shipOptionSummary = document.getElementById('shipOptionSummary');
+      const shipOptionList = document.querySelector('.option-list');
+      const editPayment = document.getElementById('editPayment');
+      const paymentMethods = document.getElementById('paymentMethods');
+      const paymentPlaceholder = document.getElementById('paymentPlaceholder');
+      const stripePublicKey = '<%= (process.env.STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || '').trim() %>';
+      let stripe = null;
+      let stripeCard = null;
+      if (stripePublicKey) {
+        stripe = Stripe(stripePublicKey);
+        const elements = stripe.elements();
+        stripeCard = elements.create('card', {
+          style: {
+            base: { fontFamily: 'Poppins, sans-serif', fontSize: '14px', color: '#1f2430' },
+            invalid: { color: '#b9102c' }
+          }
+        });
+        stripeCard.mount('#stripe-card-element');
+      }
 
       function recalcTotal() {
         const checked = document.querySelector('input[name="shipOption"]:checked');
@@ -335,9 +396,22 @@ a:hover { color: #ff3d77; }
         totalTxt.textContent = '$ ' + totalVal.toFixed(2);
       }
 
+      function updateShipSummary() {
+        const checked = document.querySelector('input[name="shipOption"]:checked');
+        if (!shipOptionSummary) return;
+        if (!checked) {
+          shipOptionSummary.textContent = '';
+          return;
+        }
+        const label = checked.value === 'delivery' ? 'Doorstep delivery' : 'Store pickup';
+        const cost = checked.dataset.cost ? `$${Number(checked.dataset.cost).toFixed(2)}` : '$0.00';
+        shipOptionSummary.textContent = `${label} — ${cost}`;
+      }
+
       document.querySelectorAll('input[name="shipOption"]').forEach(r => {
         r.addEventListener('change', async () => {
           recalcTotal();
+          updateShipSummary();
           await fetch('/checkout/option', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -355,22 +429,79 @@ a:hover { color: #ff3d77; }
       }
 
       function updatePaymentUI(method) {
-        const showCard = method === 'card';
-        if (cardFields) cardFields.classList.toggle('hidden', !showCard);
+        const showPaypal = method === 'paypal';
+        const showStripe = method === 'stripe';
         if (paypalSection) {
-          const showPaypal = method === 'paypal';
           paypalSection.classList.toggle('hidden', !showPaypal);
-          if (showPaypal) renderPaypalButton();
         }
-        if (placeOrderBtn) placeOrderBtn.disabled = method === 'paypal';
+        if (stripeSection) {
+          stripeSection.classList.toggle('hidden', !showStripe);
+          if (showStripe && stripeError) {
+            stripeError.textContent = stripe ? '' : 'Stripe is not configured yet.';
+          }
+        }
+        if (placeOrderBtn) placeOrderBtn.disabled = false;
       }
 
-      document.querySelectorAll('input[name="paymentMethod"]').forEach(r => {
+      paymentRadios.forEach(r => {
         r.addEventListener('change', async () => {
           updatePaymentUI(r.value);
           await persistPayment(r.value);
+          if (editPayment) editPayment.classList.remove('hidden');
         });
       });
+
+      function setPaymentEnabled(enabled) {
+        paymentRadios.forEach(r => {
+          r.disabled = !enabled;
+        });
+        if (paymentSection) {
+          paymentSection.classList.toggle('payment-disabled', !enabled);
+        }
+        if (!enabled) {
+          if (paypalSection) paypalSection.classList.add('hidden');
+          if (stripeSection) stripeSection.classList.add('hidden');
+        }
+        if (paymentMethods) paymentMethods.classList.toggle('hidden', !enabled);
+        if (paymentPlaceholder) paymentPlaceholder.classList.toggle('hidden', enabled);
+        if (editPayment) editPayment.classList.add('hidden');
+      }
+
+      shipOptionRadios.forEach(r => {
+        r.addEventListener('change', () => {
+          if (continueBtn) continueBtn.disabled = false;
+          if (editShipOption) editShipOption.classList.add('hidden');
+          setPaymentEnabled(false);
+        });
+      });
+
+      if (continueBtn) {
+        continueBtn.addEventListener('click', () => {
+          setPaymentEnabled(true);
+          const currentPay = document.querySelector('input[name="paymentMethod"]:checked')?.value || '<%= shipping.payment || "nets-qr" %>';
+          updatePaymentUI(currentPay);
+          if (continueBtn) continueBtn.classList.add('hidden');
+          if (editShipOption) editShipOption.classList.remove('hidden');
+          if (shipOptionSummary) shipOptionSummary.classList.remove('hidden');
+          if (shipOptionList) shipOptionList.classList.add('hidden');
+          shipOptionRadios.forEach(r => { r.disabled = true; });
+        });
+      }
+
+      if (editShipOption) {
+        editShipOption.addEventListener('click', () => {
+          shipOptionRadios.forEach(r => { r.disabled = false; });
+          if (continueBtn) {
+            continueBtn.classList.remove('hidden');
+            continueBtn.disabled = false;
+          }
+          editShipOption.classList.add('hidden');
+          if (shipOptionSummary) shipOptionSummary.classList.add('hidden');
+          if (shipOptionList) shipOptionList.classList.remove('hidden');
+          setPaymentEnabled(false);
+          if (editPayment) editPayment.classList.add('hidden');
+        });
+      }
 
       // modal edit
       const modal = document.getElementById('modalBackdrop');
@@ -381,7 +512,6 @@ a:hover { color: #ff3d77; }
       const addressEl = document.getElementById('shipAddress');
       const editContact = document.getElementById('editContact');
       const editAddress = document.getElementById('editAddress');
-      const billingField = document.getElementById('cardBilling');
       function submitNetsQr() {
         const form = document.createElement('form');
         form.method = 'POST';
@@ -389,14 +519,6 @@ a:hover { color: #ff3d77; }
         document.body.appendChild(form);
         form.submit();
       }
-
-      // ensure billing mirrors shipping on load
-      (function syncBillingOnLoad(){
-        const initialAddress = `<%= (shipping.address || '').replace(/"/g, '\\"') %>`;
-        if (billingField && initialAddress) {
-          billingField.value = initialAddress;
-        }
-      })();
 
       function closeModal(){ modal.style.display = 'none'; }
       function openModal(){ modal.style.display = 'flex'; }
@@ -413,8 +535,6 @@ a:hover { color: #ff3d77; }
         });
         contactEl.textContent = contact || 'No contact saved';
         addressEl.textContent = address || 'No address saved';
-        const billing = document.getElementById('cardBilling');
-        if (billing) billing.value = address;
         closeModal();
       });
 
@@ -435,88 +555,115 @@ a:hover { color: #ff3d77; }
         form.submit();
       }
 
-      function renderPaypalButton() {
-        const container = paypalContainer;
-        if (!container) return;
-        if (typeof paypal === 'undefined') {
-          container.innerHTML = '<p class="muted" style="margin:0;">Loading PayPal…</p>';
-          if (paypalRenderTimeout) clearTimeout(paypalRenderTimeout);
-          paypalRenderTimeout = setTimeout(renderPaypalButton, 200);
+      async function startPayPalPayment() {
+        if (placeOrderBtn) placeOrderBtn.disabled = true;
+        try {
+          const res = await fetch('/api/paypal/create-order', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          });
+          const data = await res.json();
+          if (!data?.success || !data.approveUrl) {
+            throw new Error(data?.message || 'Unable to start PayPal checkout.');
+          }
+          window.location.href = data.approveUrl;
+        } catch (err) {
+          console.error('PayPal payment error', err);
+          alert(err.message || 'Unable to start PayPal payment.');
+        } finally {
+          if (placeOrderBtn) placeOrderBtn.disabled = false;
+        }
+      }
+
+      async function startStripePayment() {
+        if (!stripe || !stripeCard) {
+          if (stripeError) stripeError.textContent = 'Stripe is not configured yet.';
           return;
         }
-        if (paypalRenderTimeout) {
-          clearTimeout(paypalRenderTimeout);
-          paypalRenderTimeout = null;
-        }
-        container.innerHTML = '';
-        paypal.Buttons({
-          style: { layout: 'vertical', label: 'paypal', color: 'gold', height: 42, shape: 'rect' },
-          createOrder: () => {
-            return fetch('/api/paypal/create-order', {
-              method: 'POST',
-              credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json' }
-            })
-              .then(res => res.json())
-              .then(data => {
-                if (!data?.success || !data.orderId) {
-                  throw new Error(data?.message || 'Unable to create PayPal order.');
-                }
-                return data.orderId;
-              });
-          },
-          onApprove: (data) =>
-            fetch('/api/paypal/capture-order', {
-              method: 'POST',
-              credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderID: data.orderID })
-            })
-              .then(res => res.json())
-              .then(result => {
-                if (!result?.success) {
-                  throw new Error(result?.message || 'PayPal payment was not completed.');
-                }
-                window.location.href = result.redirect || '/orders';
-              }),
-          onError: (err) => {
-            console.error('PayPal error', err);
-            alert('Unable to complete PayPal payment. Please try again or choose another payment option.');
+        if (placeOrderBtn) placeOrderBtn.disabled = true;
+        if (stripeError) stripeError.textContent = '';
+        try {
+          const intentRes = await fetch('/payments/stripe/create-intent', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          });
+          const intentData = await intentRes.json();
+          if (!intentData?.success || !intentData.clientSecret) {
+            throw new Error(intentData?.message || 'Unable to create Stripe intent.');
           }
-        }).render('#paypal-button-container');
+
+          const result = await stripe.confirmCardPayment(intentData.clientSecret, {
+            payment_method: {
+              card: stripeCard,
+              billing_details: {
+                name: '<%= user.username %>',
+                email: '<%= user.email || '' %>'
+              }
+            }
+          });
+
+          if (result.error) {
+            console.error('Stripe error', result.error);
+            throw new Error(result.error.message || 'Stripe payment failed.');
+          }
+
+          const confirmRes = await fetch('/payments/stripe/confirm', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentIntentId: result.paymentIntent.id, orderId: intentData.orderId })
+          });
+          const confirmData = await confirmRes.json();
+          if (!confirmData?.success) {
+            throw new Error(confirmData?.message || 'Unable to confirm Stripe payment.');
+          }
+          window.location.href = confirmData.redirect || '/orders';
+        } catch (err) {
+          console.error('Stripe payment error', err);
+          if (stripeError) stripeError.textContent = err.message || 'Stripe payment failed.';
+        } finally {
+          if (placeOrderBtn) placeOrderBtn.disabled = false;
+        }
       }
 
       const initialPaymentMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || '<%= shipping.payment || "nets-qr" %>';
       updatePaymentUI(initialPaymentMethod);
+      updateShipSummary();
+      setPaymentEnabled(false);
+      if (continueBtn) {
+        const shipSelected = document.querySelector('input[name="shipOption"]:checked');
+        continueBtn.disabled = !shipSelected;
+      }
+      if (editPayment) editPayment.classList.add('hidden');
+      if (editPayment) {
+        editPayment.addEventListener('click', () => {
+          paymentRadios.forEach(r => { r.disabled = false; });
+          editPayment.classList.add('hidden');
+        });
+      }
+
+      if (stripePayBtn) {
+        stripePayBtn.classList.add('hidden');
+      }
 
       document.getElementById('placeOrderBtn').addEventListener('click', () => {
         const payMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'nets-qr';
-        if (payMethod === 'paypal') return;
+        if (payMethod === 'paypal') {
+          startPayPalPayment();
+          return;
+        }
+        if (payMethod === 'stripe') {
+          startStripePayment();
+          return;
+        }
         if (payMethod === 'nets-qr') {
           submitNetsQr();
           return;
         }
-        const cardNumber = (document.getElementById('cardNumber').value || '').replace(/\\D/g,'');
-        const cardCvv = (document.getElementById('cardCvv').value || '').replace(/\\D/g,'');
-        const cardYear = document.getElementById('cardExpYear').value;
-        const cardMonth = document.getElementById('cardExpMonth').value;
-        if (cardNumber.length !== 16) {
-          alert('Card number must be 16 digits');
-          return;
-        }
-        if (cardCvv.length !== 3) {
-          alert('CVV must be 3 digits');
-          return;
-        }
-        submitOrder({
-          paymentMethod: 'card',
-          cardYear,
-          cardMonth,
-          cardNumber,
-          cardCvv,
-          cardName: document.getElementById('cardName').value || '',
-          cardBilling: document.getElementById('cardBilling').value || ''
-        });
       });
     })();
   </script>

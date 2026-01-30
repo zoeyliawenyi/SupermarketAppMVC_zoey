@@ -1,127 +1,123 @@
 const Cart = require('../models/Cart');
 const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
-const Product = require('../models/Product');
+const db = require('../db');
 const paypalService = require('../services/paypal');
+const { buildCheckoutSnapshot } = require('../services/checkout');
+const { finalizePaidOrder, getOrderById, updateOrderStatus } = require('../services/orderFinalize');
 
 const getCartByUser = (userId) =>
   new Promise((resolve, reject) =>
     Cart.getByUserId(userId, (err, cart) => (err ? reject(err) : resolve(cart || [])))
   );
 
-const createOrderRecord = (payload) =>
-  new Promise((resolve, reject) =>
-    Order.create(payload, (err, orderId) => (err ? reject(err) : resolve(orderId)))
-  );
+const generatePickupCodeIfNeeded = (deliveryType) =>
+  new Promise((resolve, reject) => {
+    const isPickup = (deliveryType || '').toLowerCase() === 'pickup';
+    if (!isPickup) return resolve(null);
+    Order.generatePickupCode((err, code) => (err ? reject(err) : resolve(code)));
+  });
 
-const createOrderItems = (orderId, items) =>
-  new Promise((resolve, reject) =>
-    OrderItem.createMany(orderId, items, (err) => (err ? reject(err) : resolve()))
-  );
-
-const clearCartItems = (userId, productIds) =>
-  new Promise((resolve, reject) =>
-    Cart.clearItems(userId, productIds, (err) => (err ? reject(err) : resolve()))
-  );
-
-const decrementStock = (items) =>
-  Promise.all(
-    (items || []).map(
-      (item) =>
-        new Promise((resolve, reject) =>
-          Product.decrementStock(item.productId, item.quantity, (err) =>
-            err ? reject(err) : resolve()
-          )
-        )
-    )
-  );
-
-const buildCheckoutSnapshot = (req, cart) => {
-  const selection = Array.isArray(req.session.checkoutSelection)
-    ? req.session.checkoutSelection.map((v) => Number(v))
-    : [];
-  const cartForOrder = selection.length
-    ? cart.filter((item) => selection.includes(Number(item.productId)))
-    : cart;
-
-  const shipping = req.session.checkoutShipping || {
-    contact: req.session.user?.contact || '',
-    address: req.session.user?.address || '',
-    option: 'pickup',
-    payment: 'paypal',
-  };
-
-  const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
-  const subtotal = (cartForOrder || []).reduce(
-    (sum, item) => sum + item.price * item.quantity,
-    0
-  );
-  const total = subtotal + shippingCost;
-
-  return {
-    cartForOrder,
-    shipping,
-    selection,
-    shippingCost,
-    subtotal,
-    total,
-  };
-};
-
-const finalizePendingOrder = async (req, status) => {
+const createPendingOrder = async (req, snapshot) => {
   const userId = req.session.user?.id;
   if (!userId) throw new Error('Missing session user');
+  const pickupCode = await generatePickupCodeIfNeeded(snapshot.shipping.option);
 
-  const pending = req.session.pendingPaypalOrder || {};
-  const selection = Array.isArray(pending.selection)
-    ? pending.selection.map((v) => Number(v))
-    : [];
-  const cart = await getCartByUser(userId);
-  const cartForOrder = selection.length
-    ? cart.filter((item) => selection.includes(Number(item.productId)))
-    : cart;
-
-  if (!cartForOrder.length) throw new Error('No items selected for checkout');
-
-  const shipping =
-    pending.shipping ||
-    req.session.checkoutShipping || {
-      option: 'pickup',
-      payment: 'paypal',
-      contact: '',
-      address: '',
-    };
-
-  const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
-  const subtotal = cartForOrder.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const total =
-    typeof pending.total === 'number' && pending.total >= 0
-      ? pending.total
-      : subtotal + shippingCost;
-
-  const orderPayload = {
-    userId,
-    total,
-    paymentMethod: 'paypal',
-    deliveryType: shipping.option,
-    address: shipping.address || req.session.user?.address,
-    status,
-  };
-
-  const orderId = await createOrderRecord(orderPayload);
-  await createOrderItems(orderId, cartForOrder);
-  await decrementStock(cartForOrder);
-  const orderedProductIds = cartForOrder.map((item) => item.productId);
-  await clearCartItems(userId, orderedProductIds);
-
-  req.session.lastOrder = { id: orderId, items: cartForOrder };
-  req.session.checkoutSelection = [];
-  req.session.pendingPaypalOrder = null;
-
-  return orderId;
+  return new Promise((resolve, reject) => {
+    db.beginTransaction((txErr) => {
+      if (txErr) return reject(txErr);
+      const payload = {
+        userId,
+        total: snapshot.total,
+        paymentMethod: 'paypal',
+        paymentProvider: 'paypal',
+        deliveryType: snapshot.shipping.option,
+        address: snapshot.shipping.address || req.session.user?.address,
+        pickupCode,
+        pickupCodeStatus: pickupCode ? 'active' : null,
+        pickupCodeRedeemedAt: null,
+        status: 'pending_payment',
+      };
+      Order.create(payload, (orderErr, orderId) => {
+        if (orderErr) {
+          return db.rollback(() => reject(orderErr));
+        }
+        OrderItem.createMany(orderId, snapshot.cartForOrder, (itemErr) => {
+          if (itemErr) {
+            return db.rollback(() => reject(itemErr));
+          }
+          db.commit((commitErr) => {
+            if (commitErr) return db.rollback(() => reject(commitErr));
+            resolve(orderId);
+          });
+        });
+      });
+    });
+  });
 };
 
 const PayPalController = {
+  capturePayPalOrder: async (req, orderID) => {
+    const userId = req.session.user?.id;
+    if (!userId) return { success: false, status: 401, message: 'Unauthorized' };
+    if (!orderID) return { success: false, status: 400, message: 'Missing orderID' };
+
+    let order = await new Promise((resolve, reject) => {
+      Order.findByPayPalOrderId(orderID, (err, row) => (err ? reject(err) : resolve(row)));
+    });
+    if (!order && req.session.pendingPaypalOrderId) {
+      order = await getOrderById(req.session.pendingPaypalOrderId);
+    }
+    if (!order) {
+      return { success: false, status: 400, message: 'Order not found for this PayPal order.' };
+    }
+    if (order.userId !== userId) {
+      return { success: false, status: 403, message: 'Access denied.' };
+    }
+    const statusLower = (order.status || '').toLowerCase();
+    if (statusLower === 'payment successful') {
+      return { success: true, orderId: order.id };
+    }
+
+    const captureResult = await paypalService.captureOrder(orderID);
+    const captureStatus =
+      captureResult?.status ||
+      captureResult?.purchase_units?.[0]?.payments?.captures?.[0]?.status ||
+      '';
+    const success =
+      typeof captureStatus === 'string' && captureStatus.toUpperCase() === 'COMPLETED';
+
+    if (!success) {
+      await updateOrderStatus(order.id, 'payment failed');
+      return {
+        success: false,
+        status: 400,
+        message: 'PayPal payment was not completed.',
+        detail: captureStatus,
+      };
+    }
+
+    const captureId =
+      captureResult?.purchase_units?.[0]?.payments?.captures?.[0]?.id || null;
+    const captureAmount =
+      captureResult?.purchase_units?.[0]?.payments?.captures?.[0]?.amount?.value || null;
+    if (captureAmount && Number(captureAmount).toFixed(2) !== Number(order.total || 0).toFixed(2)) {
+      await updateOrderStatus(order.id, 'payment failed');
+      return { success: false, status: 400, message: 'PayPal capture amount mismatch.' };
+    }
+    await new Promise((resolve, reject) => {
+      Order.updatePayPalRefs(order.id, orderID, captureId, (err) =>
+        err ? reject(err) : resolve()
+      );
+    });
+
+    await finalizePaidOrder(req, order.id);
+    req.session.pendingPaypalOrderId = null;
+    req.session.pendingPaypalOrder = null;
+    console.log('[paypal] capture completed', { orderId: order.id, paypalOrderId: orderID });
+    return { success: true, orderId: order.id };
+  },
+
   createOrder: async (req, res) => {
     try {
       const userId = req.session.user?.id;
@@ -132,22 +128,58 @@ const PayPalController = {
         return res.status(400).json({ success: false, message: 'Your cart is empty' });
       }
 
-      const snapshot = buildCheckoutSnapshot(req, cart);
+      const snapshot = buildCheckoutSnapshot(req, cart, 'paypal');
       if (!snapshot.cartForOrder.length) {
         return res.status(400).json({ success: false, message: 'No items selected for checkout' });
       }
 
-      const paypalOrder = await paypalService.createOrder(snapshot.total);
+      let orderId = req.session.pendingPaypalOrderId || null;
+      let order = null;
+      if (orderId) {
+        order = await getOrderById(orderId);
+        const statusLower = (order?.status || '').toLowerCase();
+        const totalMatch = order && Number(order.total || 0).toFixed(2) === Number(snapshot.total || 0).toFixed(2);
+        const methodMatch = order && (order.paymentMethod || '').toLowerCase() === 'paypal';
+        if (!order || order.userId !== userId || statusLower !== 'pending_payment' || !totalMatch || !methodMatch) {
+          order = null;
+        }
+      }
+
+      if (!order) {
+        orderId = await createPendingOrder(req, snapshot);
+        order = await getOrderById(orderId);
+        req.session.pendingPaypalOrderId = orderId;
+      }
+
+      const idempotencyKey = `paypal-${orderId}`;
+      const returnUrl = `${req.protocol}://${req.get('host')}/paypal/return`;
+      const cancelUrl = `${req.protocol}://${req.get('host')}/paypal/cancel`;
+      const paypalOrder = await paypalService.createOrder(order.total, {
+        idempotencyKey,
+        returnUrl,
+        cancelUrl,
+      });
+
+      await new Promise((resolve, reject) => {
+        Order.updatePayPalRefs(orderId, paypalOrder.id, null, (err) =>
+          err ? reject(err) : resolve()
+        );
+      });
+      req.session.pendingPaypalOrderId = orderId;
       req.session.pendingPaypalOrder = {
-        selection: snapshot.selection,
-        shipping: snapshot.shipping,
-        total: snapshot.total,
+        orderId,
+        paypalOrderId: paypalOrder.id,
       };
+      console.log('[paypal] order created', { orderId, paypalOrderId: paypalOrder.id, amount: order.total });
+
+      const approveLink = (paypalOrder.links || []).find((l) => l.rel === 'approve');
       res.json({
         success: true,
-        orderId: paypalOrder.id,
+        orderId,
+        paypalOrderId: paypalOrder.id,
         status: paypalOrder.status,
-        amount: snapshot.total,
+        amount: order.total,
+        approveUrl: approveLink ? approveLink.href : null,
       });
     } catch (error) {
       console.error('PayPal create order error:', error);
@@ -159,42 +191,51 @@ const PayPalController = {
 
   captureOrder: async (req, res) => {
     try {
-      const userId = req.session.user?.id;
-      if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
       const { orderID } = req.body || {};
-      if (!orderID) {
-        return res.status(400).json({ success: false, message: 'Missing orderID' });
+      const result = await PayPalController.capturePayPalOrder(req, orderID);
+      if (!result.success) {
+        return res.status(result.status || 500).json({ success: false, message: result.message, detail: result.detail });
       }
-
-      const captureResult = await paypalService.captureOrder(orderID);
-      const captureStatus =
-        captureResult?.status ||
-        captureResult?.purchase_units?.[0]?.payments?.captures?.[0]?.status ||
-        '';
-      const success =
-        typeof captureStatus === 'string' && captureStatus.toUpperCase() === 'COMPLETED';
-
-      if (!success) {
-        return res.status(400).json({
-          success: false,
-          message: 'PayPal payment was not completed.',
-          detail: captureStatus,
-        });
-      }
-
-      const orderId = await finalizePendingOrder(req, 'payment successful');
-      res.json({
-        success: true,
-        orderId,
-        redirect: `/orders/success?id=${orderId}`,
-      });
+      res.json({ success: true, orderId: result.orderId, redirect: `/orders/success?id=${result.orderId}` });
     } catch (error) {
       console.error('PayPal capture order error:', error);
       res
         .status(500)
         .json({ success: false, message: 'Unable to confirm PayPal payment. Please try again.' });
     }
+  },
+
+  return: async (req, res) => {
+    try {
+      const orderID = req.query.token || req.query.orderID;
+      if (!orderID) {
+        req.flash('error', 'Missing PayPal order reference.');
+        return res.redirect('/checkout');
+      }
+      const result = await PayPalController.capturePayPalOrder(req, orderID);
+      if (!result.success) {
+        req.flash('error', result.message || 'PayPal payment was not completed.');
+        return res.redirect('/orders/fail');
+      }
+      res.redirect(`/orders/success?id=${result.orderId}`);
+    } catch (error) {
+      console.error('PayPal return error:', error);
+      req.flash('error', 'PayPal payment could not be confirmed.');
+      res.redirect('/checkout');
+    }
+  },
+
+  cancel: async (req, res) => {
+    try {
+      const orderId = req.session.pendingPaypalOrderId;
+      if (orderId) {
+        await updateOrderStatus(orderId, 'payment failed');
+      }
+    } catch (e) {
+      // ignore
+    }
+    req.flash('error', 'PayPal payment was cancelled.');
+    res.redirect('/checkout');
   },
 };
 

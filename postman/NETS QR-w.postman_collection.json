@@ -1,0 +1,128 @@
+{
+  "info": {
+    "_postman_id": "ca670441-b2a8-48e5-817f-1af0a508a3fb",
+    "name": "NETS QR-w",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "51573986"
+  },
+  "item": [
+    {
+      "name": "[POST] Request API",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": ""
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const text = pm.response.text();",
+              "const match = text.match(/Transaction ref:\\s*<strong>([^<]+)<\\/strong>/i);",
+              "if (match && match[1]) { pm.environment.set('netsRequestId', match[1]); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "[GET] Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/nets/status/{{netsRequestId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "[GET] Simulate Success",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/nets/simulate-success/{{netsRequestId}}"
+        }
+      },
+      "response": [],
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "const json = pm.response.json();",
+              "if (json && json.orderId) { pm.environment.set('orderId', json.orderId); }"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ]
+    },
+    {
+      "name": "[GET] Simulate Failure",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/nets/simulate-failure/{{netsRequestId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "[POST] Cancel",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/nets/cancel/{{netsRequestId}}"
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Admin - Refunds",
+      "item": [
+        {
+          "name": "Simulate NETS refund success",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/nets/simulate-refund-success/{{netsRequestId}}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Simulate NETS refund failure",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/nets/simulate-refund-failure/{{netsRequestId}}"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cancel NETS transaction (admin reject)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/nets/cancel/{{netsRequestId}}"
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

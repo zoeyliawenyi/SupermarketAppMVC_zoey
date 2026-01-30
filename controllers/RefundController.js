@@ -1,5 +1,9 @@
 const Refund = require('../models/Refund');
 const Order = require('../models/Order');
+const OrderItem = require('../models/OrderItem');
+const db = require('../db');
+const fs = require('fs');
+const path = require('path');
 
 const allowedRefundTypes = [
   'full_refund',
@@ -20,6 +24,26 @@ const allowedReasons = [
   'pricing_promo_issue',
   'changed_mind'
 ];
+
+const saveEvidenceFiles = (refundId, files = []) => {
+  if (!files || !files.length) return [];
+  const baseDir = path.join(__dirname, '..', 'public', 'uploads', 'refunds', String(refundId));
+  fs.mkdirSync(baseDir, { recursive: true });
+  const mimeToExt = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/webp': '.webp',
+  };
+  const saved = [];
+  files.forEach((file) => {
+    const ext = mimeToExt[file.mimetype] || path.extname(file.originalname).toLowerCase() || '.jpg';
+    const safeName = `evidence_${Date.now()}_${Math.floor(Math.random() * 100000)}${ext}`;
+    const fullPath = path.join(baseDir, safeName);
+    fs.writeFileSync(fullPath, file.buffer);
+    saved.push(`uploads/refunds/${refundId}/${safeName}`);
+  });
+  return saved;
+};
 
 const RefundController = {
   list: (req, res) => {
@@ -85,8 +109,7 @@ const RefundController = {
     const refundType = allowedRefundTypes.includes(req.body.refundType) ? req.body.refundType : 'partial_refund';
     const reason = allowedReasons.includes(req.body.reason) ? req.body.reason : 'changed_mind';
     const note = req.body.note || '';
-    const evidenceImage = req.body.evidenceImage || '';
-    const preferredMethod = req.body.preferredMethod === 'wallet' ? 'wallet' : 'original';
+    const preferredMethod = 'original';
 
     Order.findByIdWithAgg(orderId, (err, order) => {
       if (err || !order) {
@@ -117,7 +140,7 @@ const RefundController = {
               refundType,
               reason,
               note,
-              evidenceImage,
+              '',
               preferredMethod,
               requestedItems,
               (createErr, refundId) => {
@@ -126,7 +149,17 @@ const RefundController = {
                   req.flash('error', createErr.message || 'Unable to submit refund request');
                   return res.redirect(`/refunds/request/${orderId}`);
                 }
-                res.redirect(`/refunds/${refundId}`);
+                const evidenceFiles = req.files || [];
+                try {
+                  const saved = saveEvidenceFiles(refundId, evidenceFiles);
+                  Refund.createEvidence(refundId, saved, (evErr) => {
+                    if (evErr) console.error('Refund evidence insert error:', evErr);
+                    res.redirect(`/refunds/${refundId}`);
+                  });
+                } catch (e) {
+                  console.error('Refund evidence save error:', e);
+                  res.redirect(`/refunds/${refundId}`);
+                }
               }
             );
           }
@@ -171,8 +204,7 @@ const RefundController = {
     const refundType = allowedRefundTypes.includes(req.body.refundType) ? req.body.refundType : 'partial_refund';
     const reason = allowedReasons.includes(req.body.reason) ? req.body.reason : 'changed_mind';
     const note = req.body.note || '';
-    const evidenceImage = req.body.evidenceImage || '';
-    const preferredMethod = req.body.preferredMethod === 'wallet' ? 'wallet' : 'original';
+    const preferredMethod = 'original';
 
     if (!orderId) {
       return res.status(400).json({ status: 'error', message: 'orderId is required' });
@@ -203,7 +235,7 @@ const RefundController = {
               refundType,
               reason,
               note,
-              evidenceImage,
+              '',
               preferredMethod,
               requestedItems,
               (createErr, refundId) => {
@@ -211,7 +243,17 @@ const RefundController = {
                   console.error('Create refund error:', createErr);
                   return res.status(400).json({ status: 'error', message: createErr.message || 'Unable to submit refund request' });
                 }
-                res.json({ status: 'ok', refundId });
+                const evidenceFiles = req.files || [];
+                try {
+                  const saved = saveEvidenceFiles(refundId, evidenceFiles);
+                  Refund.createEvidence(refundId, saved, (evErr) => {
+                    if (evErr) console.error('Refund evidence insert error:', evErr);
+                    res.json({ status: 'ok', refundId, evidenceCount: saved.length });
+                  });
+                } catch (e) {
+                  console.error('Refund evidence save error:', e);
+                  res.json({ status: 'ok', refundId, evidenceCount: 0 });
+                }
               }
             );
           }
@@ -250,7 +292,7 @@ const RefundController = {
 
   detail: (req, res) => {
     const refundId = parseInt(req.params.refundId, 10);
-    Refund.getRefundDetailForUser(req.session.user.id, refundId, (err, refund, items, transaction) => {
+    Refund.getRefundDetailForUser(req.session.user.id, refundId, (err, refund, items, transaction, evidence) => {
       if (err || !refund) {
         req.flash('error', 'Refund not found');
         return res.redirect('/refunds');
@@ -259,6 +301,7 @@ const RefundController = {
         refund,
         items: items || [],
         transaction,
+        evidence: evidence || [],
         user: req.session.user
       });
     });
@@ -266,7 +309,7 @@ const RefundController = {
 ,
   apiDetail: (req, res) => {
     const refundId = parseInt(req.params.refundId, 10);
-    Refund.getRefundDetailForUser(req.session.user.id, refundId, (err, refund, items, transaction) => {
+    Refund.getRefundDetailForUser(req.session.user.id, refundId, (err, refund, items, transaction, evidence) => {
       if (err || !refund) {
         return res.status(404).json({ status: 'error', message: 'Refund not found' });
       }
@@ -274,7 +317,81 @@ const RefundController = {
         status: 'ok',
         refund,
         items: items || [],
-        transaction: transaction || null
+        transaction: transaction || null,
+        evidence: evidence || []
+      });
+    });
+  }
+,
+  quickRequest: (req, res) => {
+    const orderId = parseInt(req.params.orderId, 10);
+    if (Number.isNaN(orderId)) {
+      req.flash('error', 'Invalid order');
+      return res.redirect('/orders');
+    }
+    Order.findByIdWithAgg(orderId, (err, order) => {
+      if (err || !order) {
+        req.flash('error', 'Order not found');
+        return res.redirect('/orders');
+      }
+      if (order.userId !== req.session.user.id) {
+        req.flash('error', 'Access denied');
+        return res.redirect('/orders');
+      }
+      const statusKey = (order.status || '').trim().toLowerCase().replace(/\s+/g, '_');
+      const allowed = ['payment_successful', 'packing', 'out_for_delivery', 'ready_for_pickup', 'pickup_pending'];
+      if (!allowed.includes(statusKey)) {
+        req.flash('error', 'Refund not available for this order status.');
+        return res.redirect(`/orders/${orderId}`);
+      }
+
+      console.log('[refund] quick request', { orderId, userId: req.session.user.id });
+
+      const dupSql = 'SELECT id FROM refunds WHERE orderId = ? AND status != ? LIMIT 1';
+      db.query(dupSql, [orderId, 'rejected'], (dupErr, dupRows) => {
+        if (dupErr) {
+          console.error('Refund duplicate check error:', dupErr);
+          req.flash('error', 'Unable to create refund right now.');
+          return res.redirect(`/orders/${orderId}`);
+        }
+        if (dupRows && dupRows[0]) {
+          return res.redirect(`/refunds/${dupRows[0].id}`);
+        }
+
+        OrderItem.findByOrderId(orderId, (itemErr, items) => {
+          if (itemErr || !items || !items.length) {
+            req.flash('error', 'No items found for this order');
+            return res.redirect(`/orders/${orderId}`);
+          }
+
+          const requestedItems = items.map((it) => ({
+            orderItemId: it.id,
+            productId: it.productId || null,
+            productName: it.productName || 'Item',
+            qtyRequested: Number(it.quantity || 0),
+            unitPrice: Number(it.price || 0),
+          }));
+
+          Refund.createRefundRequest(
+            req.session.user.id,
+            orderId,
+            'full_refund',
+            'changed_mind',
+            'User requested refund from order page',
+            '',
+            'original',
+            requestedItems,
+            (createErr, refundId) => {
+              if (createErr) {
+                console.error('Create refund error:', createErr);
+                req.flash('error', createErr.message || 'Unable to submit refund request');
+                return res.redirect(`/orders/${orderId}`);
+              }
+              req.flash('success', 'Refund request submitted');
+              return res.redirect(`/refunds/${refundId}`);
+            }
+          );
+        });
       });
     });
   }

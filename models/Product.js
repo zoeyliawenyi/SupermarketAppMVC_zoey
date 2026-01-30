@@ -15,7 +15,7 @@ const Product = {
     },
 
     getLimited: (limit, callback) => {
-        const sql = 'SELECT * FROM products LIMIT ?';
+        const sql = 'SELECT * FROM products ORDER BY id DESC LIMIT ?';
         db.query(sql, [limit], callback);
     },
 

@@ -1,0 +1,340 @@
+{
+  "info": {
+    "name": "ZozoMart – Stripe Payments & Subscriptions",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authorization",
+      "item": [
+        {
+          "name": "Login (User)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "url": { "raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "user@example.com" },
+                { "key": "password", "value": "user123" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Login responded', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,302]);",
+                  "});",
+                  "const cookie = pm.response.headers.get('set-cookie');",
+                  "if (cookie) {",
+                  "  pm.environment.set('userCookie', cookie.split(';')[0]);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/x-www-form-urlencoded" }
+            ],
+            "url": { "raw": "{{baseUrl}}/login", "host": ["{{baseUrl}}"], "path": ["login"] },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                { "key": "email", "value": "admin@zozomart.com" },
+                { "key": "password", "value": "admin123" }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Admin login responded', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,302]);",
+                  "});",
+                  "const cookie = pm.response.headers.get('set-cookie');",
+                  "if (cookie) {",
+                  "  pm.environment.set('adminCookie', cookie.split(';')[0]);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Payments - Stripe (App)",
+      "item": [
+        {
+          "name": "Create Stripe PaymentIntent",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "{{userCookie}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/payments/stripe/create-intent", "host": ["{{baseUrl}}"], "path": ["payments","stripe","create-intent"] },
+            "body": { "mode": "raw", "raw": "{}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Intent created', function () {",
+                  "  pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data && data.paymentIntentId) {",
+                  "  pm.environment.set('stripePaymentIntentId', data.paymentIntentId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dev Confirm Stripe Intent (Test PM)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "{{userCookie}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/dev/stripe/intent/succeed", "host": ["{{baseUrl}}"], "path": ["dev","stripe","intent","succeed"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentIntentId\": \"{{stripePaymentIntentId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Dev confirm responded', function () {",
+                  "  pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data && data.orderId) {",
+                  "  pm.environment.set('orderId', data.orderId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirm Stripe Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "{{userCookie}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/payments/stripe/confirm", "host": ["{{baseUrl}}"], "path": ["payments","stripe","confirm"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paymentIntentId\": \"{{stripePaymentIntentId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Confirm responded', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400]);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data && data.orderId) {",
+                  "  pm.environment.set('orderId', data.orderId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Order Detail (HTML)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Cookie", "value": "{{userCookie}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/orders/{{orderId}}", "host": ["{{baseUrl}}"], "path": ["orders","{{orderId}}"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Order detail responded', function () {",
+                  "  pm.expect(pm.response.code).to.equal(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Subscriptions",
+      "item": [
+        {
+          "name": "Create Subscription Checkout Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "{{userCookie}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/subscriptions/stripe/checkout-session", "host": ["{{baseUrl}}"], "path": ["subscriptions","stripe","checkout-session"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priceId\": \"REPLACE_WITH_STRIPE_PRICE_ID\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Checkout session responded', function () {",
+                  "  pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "const data = pm.response.json();",
+                  "if (data && data.sessionId) {",
+                  "  pm.environment.set('stripeCheckoutSessionId', data.sessionId);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Dev Simulate Subscription Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "{{adminCookie}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/dev/stripe/webhook/simulate", "host": ["{{baseUrl}}"], "path": ["dev","stripe","webhook","simulate"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"customer.subscription.created\",\n  \"stripeSubscriptionId\": \"{{stripeSubscriptionId}}\",\n  \"stripeCustomerId\": \"cus_test\",\n  \"status\": \"active\",\n  \"priceId\": \"price_test\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Webhook simulated', function () {",
+                  "  pm.expect(pm.response.code).to.equal(200);",
+                  "});",
+                  "if (!pm.environment.get('stripeSubscriptionId')) {",
+                  "  pm.environment.set('stripeSubscriptionId', 'sub_test');",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Manage Subscription (HTML)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Cookie", "value": "{{userCookie}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/subscriptions/manage", "host": ["{{baseUrl}}"], "path": ["subscriptions","manage"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Manage page responded', function () {",
+                  "  pm.expect(pm.response.code).to.equal(200);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel Subscription",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "{{userCookie}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/subscriptions/cancel", "host": ["{{baseUrl}}"], "path": ["subscriptions","cancel"] },
+            "body": { "mode": "raw", "raw": "{}" }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Cancel responded', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Usage (Admin)",
+      "item": [
+        {
+          "name": "Record Usage (Metered)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Cookie", "value": "{{adminCookie}}" }
+            ],
+            "url": { "raw": "{{baseUrl}}/subscriptions/usage/record", "host": ["{{baseUrl}}"], "path": ["subscriptions","usage","record"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventType\": \"delivery_fee\",\n  \"quantity\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Usage record responded', function () {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200,400,500]);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

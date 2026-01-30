@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Manage Subscription</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+:root { --text:#1f2430; --muted:#6b7280; --border:#e5e7eb; --shadow:0 12px 30px rgba(17,24,39,0.08); --radius:16px; --accent:#ff5c8a; --accent2:#ff8fb1; }
+body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff); color:var(--text); }
+.shell { max-width: 1080px; margin: 0 auto; padding: 20px; }
+.nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; box-shadow:var(--shadow); margin-bottom:14px; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+.brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,var(--accent),var(--accent2)); box-shadow:0 0 10px rgba(255,92,138,0.6); }
+.nav-links { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.nav-links a { padding:8px 14px; border-radius:10px; color:var(--text); font-weight:500; text-decoration:none; }
+.nav-links a:hover { background: rgba(255,92,138,0.12); }
+.card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px; margin:14px auto 0; }
+.muted { color:var(--muted); }
+.cta { padding:12px 16px; border:none; border-radius:12px; font-weight:600; cursor:pointer; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); color:#fff; }
+.cta.secondary { background:#fff; color:#1f2430; border:1px solid var(--border); }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <nav class="nav">
+      <div class="brand"><span class="dot"></span>ZozoMart</div>
+      <div class="nav-links">
+        <a href="/shopping">Home</a>
+        <a href="/orders">My Orders</a>
+        <a href="/account">My Account</a>
+        <a href="/subscriptions/plans">Plans</a>
+      </div>
+    </nav>
+
+    <div class="card">
+      <h2 style="margin:0 0 6px;">Manage Subscription</h2>
+      <% if (error) { %>
+        <p class="muted"><%= error %></p>
+      <% } %>
+      <% if (!subscription) { %>
+        <p class="muted">You do not have an active subscription.</p>
+        <a class="cta" href="/subscriptions/plans" style="text-decoration:none; display:inline-block;">View plans</a>
+      <% } else { %>
+        <div style="display:grid; gap:8px; max-width:520px;">
+          <div><strong>Status:</strong> <%= subscription.status %></div>
+          <div><strong>Current period end:</strong> <%= subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'N/A' %></div>
+          <div><strong>Cancel at period end:</strong> <%= subscription.cancelAtPeriodEnd ? 'Yes' : 'No' %></div>
+        </div>
+        <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap;">
+          <button class="cta" id="cancelSub">Cancel subscription</button>
+          <a class="cta secondary" href="/subscriptions/plans" style="text-decoration:none;">Change plan</a>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <script>
+    const cancelBtn = document.getElementById('cancelSub');
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', async () => {
+        cancelBtn.disabled = true;
+        try {
+          const res = await fetch('/subscriptions/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+          const data = await res.json();
+          if (!data?.success) throw new Error(data?.message || 'Unable to cancel.');
+          alert('Subscription cancel requested.');
+          window.location.reload();
+        } catch (err) {
+          alert(err.message || 'Unable to cancel subscription.');
+        } finally {
+          cancelBtn.disabled = false;
+        }
+      });
+    }
+  </script>
+</body>
+</html>

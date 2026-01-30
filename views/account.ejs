@@ -83,6 +83,24 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
         <button class="cta" type="submit">Save changes</button>
       </form>
     </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 8px;">Membership</h2>
+      <% if (subscription) { %>
+        <p class="muted" style="margin:0 0 10px;">Your plan is active.</p>
+        <div style="display:grid; gap:6px; max-width:520px;">
+          <div><strong>Status:</strong> <%= subscription.status %></div>
+          <div><strong>Next billing date:</strong> <%= subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'N/A' %></div>
+          <div><strong>Cancel at period end:</strong> <%= subscription.cancelAtPeriodEnd ? 'Yes' : 'No' %></div>
+        </div>
+        <div style="margin-top:12px;">
+          <a class="cta" href="/subscriptions/manage" style="text-decoration:none; display:inline-block;">Manage subscription</a>
+        </div>
+      <% } else { %>
+        <p class="muted" style="margin:0 0 10px;">You do not have an active subscription.</p>
+        <a class="cta" href="/subscriptions/plans" style="text-decoration:none; display:inline-block;">View membership plans</a>
+      <% } %>
+    </div>
   </div>
 </body>
 </html>
