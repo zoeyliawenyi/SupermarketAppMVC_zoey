@@ -430,6 +430,10 @@ exports.invoice = (req, res) => {
     const statusLower = (order.status || '').trim().toLowerCase();
     const paidStatuses = ['payment successful', 'payment_successful', 'packing', 'out for delivery', 'ready for pickup', 'completed'];
     const isPaid = paidStatuses.includes(statusLower);
+    if (statusLower === 'cancelled') {
+      req.flash('error', 'Invoice is not available for cancelled orders.');
+      return res.redirect(`/orders/${orderId}`);
+    }
     if (!isPaid) {
       req.flash('error', 'Invoice is only available after payment is successful.');
       return res.redirect(`/orders/${orderId}`);

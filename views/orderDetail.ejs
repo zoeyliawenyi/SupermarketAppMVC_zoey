@@ -60,7 +60,7 @@ th { color:var(--muted); font-weight:700; }
           <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
         <% } %>
         <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
+          <summary>User: <%= user.username %> v</summary>
           <div class="dropdown">
             <% if (isAdminView) { %>
               <a href="/admin/orders">Orders</a>
@@ -81,7 +81,7 @@ th { color:var(--muted); font-weight:700; }
         <h2 style="margin:2px 0 6px;">Order details</h2>
         <p class="muted" style="margin:0;">Placed: <%= order.createdAt ? (order.createdAt.toLocaleString ? order.createdAt.toLocaleString() : order.createdAt) : '' %></p>
       </div>
-      <a href="<%= backLink %>" class="btn">← Back to orders</a>
+      <a href="<%= backLink %>" class="btn"><- Back to orders</a>
     </div>
 
     <div class="card" style="margin-top:14px;">
@@ -232,7 +232,7 @@ th { color:var(--muted); font-weight:700; }
           const canInvoice = isPaid;
         %>
         <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-          <a class="btn" href="/orders">Back to orders</a>
+      <a href="<%= backLink %>" class="btn"><- Back to orders</a>
           <% if (canInvoice) { %>
             <a class="btn primary" href="/orders/<%= order.id %>/invoice" target="_blank">Invoice (PDF)</a>
           <% } %>

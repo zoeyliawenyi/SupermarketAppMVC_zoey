@@ -79,7 +79,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
         <a href="/favorites">Favorites</a>
         <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
         <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
+          <summary>User: <%= user.username %> v</summary>
           <div class="dropdown">
             <a href="/account">My Account</a>
             <a href="/orders">My Orders</a>
@@ -146,50 +146,45 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                               : (o.firstImage ? '/images/' + o.firstImage
                               : (o.image ? '/images/' + o.image : placeholder)));
                const qty = o.cachedQty || (items.reduce((s,i)=>s+(i.quantity||0),0)) || o.totalQty || o.totalQuantity || o.itemsCount || 0;
-               const displayStatus = (o.status || 'placed').trim().toLowerCase();
-               const statusKey = displayStatus.replace(/\s+/g, '_');
-               const statusLabels = {
-                 pending_payment: 'Awaiting payment',
-                 payment_failed: 'Payment failed',
-                 payment_successful: 'Paid',
-                 packing: 'Packing',
-                 out_for_delivery: 'Out for delivery',
-                 ready_for_pickup: 'Ready for pickup',
-                 pickup_pending: 'Pickup pending',
-                 completed: 'Completed',
-                 cancelled: 'Cancelled',
-                 refunded: 'Refunded',
-                 partially_refunded: 'Partially refunded'
-               };
-               const displayStatusLabel = statusLabels[statusKey] || displayStatus.replace(/_/g, ' ');
-               const refundStatusKey = (o.refundStatus || '').trim().toLowerCase().replace(/\\s+/g, '_');
-               const refundLabels = {
-                 requested: 'Requested',
-                 approved: 'Approved',
-                 rejected: 'Rejected',
-                 processing: 'Processing',
-                 refunded: 'Refunded',
-                 failed: 'Failed',
-                 manual_review: 'Manual review',
-                 completed: 'Completed'
-               };
-               const refundLabel = refundLabels[refundStatusKey] || (o.refundStatus || '');
-               const shipType = (o.deliveryType || '').toLowerCase();
-               const isPickup = shipType.includes('pickup');
-               const pickupActive = (o.pickupCodeStatus || '').toLowerCase() === 'active';
-               const methodLower = (o.paymentMethod || '').toLowerCase();
-               const eligibleRefund = ['payment_successful','packing','out_for_delivery','ready_for_pickup','pickup_pending'].includes(statusKey);
-               const isPaid = ['payment_successful','packing','out_for_delivery','ready_for_pickup','completed','refunded','partially_refunded'].includes(statusKey);
-               const isFailed = statusKey === 'payment_failed';
-               const isPending = displayStatus === 'pending_payment';
-               const canCancel = isPending || isFailed;
-               const canRetry =
-                 (isPending || isFailed) &&
-                 (methodLower === 'stripe' || methodLower === 'paypal' || methodLower === 'nets-qr' || methodLower === 'nets');
-               const canRefund = false;
-               const canInvoice = isPaid;
-               const hasRefund = !!o.refundStatus;
-               const canRefundRequest = eligibleRefund && !hasRefund;
+                const displayStatus = (o.status || 'placed').trim().toLowerCase();
+                const statusKey = displayStatus.replace(/\s+/g,'_');
+                const statusLabels = {
+                  pending_payment: 'Awaiting payment',
+                  payment_failed: 'Payment failed',
+                  payment_successful: 'Paid',
+                  packing: 'Packing',
+                  out_for_delivery: 'Out for delivery',
+                  ready_for_pickup: 'Ready for pickup',
+                  pickup_pending: 'Pickup pending',
+                  completed: 'Completed',
+                  cancelled: 'Cancelled',
+                  refunded: 'Refunded',
+                  partially_refunded: 'Partially refunded'
+                };
+                const displayStatusLabel = statusLabels[statusKey] || (o.status || 'placed');
+                const refundStatusKey = (o.refundStatus || '').trim().toLowerCase().replace(/\s+/g,'_');
+                const refundLabels = {
+                  requested: 'Requested',
+                  approved: 'Approved',
+                  rejected: 'Rejected',
+                  processing: 'Processing',
+                  refunded: 'Refunded',
+                  completed: 'Completed',
+                  failed: 'Failed',
+                  manual_review: 'Manual review'
+                };
+                const refundLabel = o.refundStatus ? (refundLabels[refundStatusKey] || o.refundStatus) : '';
+                const shipLower = (o.deliveryType || '').toLowerCase();
+                const isPickup = shipLower.includes('pickup');
+                const pickupActive = (o.pickupCodeStatus || '').toLowerCase() === 'active';
+                const methodLower = (o.paymentMethod || '').toLowerCase();
+                const isPending = displayStatus === 'pending_payment';
+                const isFailed = displayStatus === 'payment failed' || displayStatus === 'payment_failed';
+                const canRetry =
+                  (isPending || isFailed) &&
+                  (methodLower === 'stripe' || methodLower === 'paypal' || methodLower === 'nets-qr' || methodLower === 'nets');
+                const canCancel = displayStatus === 'payment successful' || displayStatus === 'packing';
+                const canRefund = displayStatus === 'out for delivery' || displayStatus === 'completed';
                const itemName = first && first.productName ? first.productName : (items.length > 1 ? 'Items' : (first && first.productId ? ('Item #' + first.productId) : 'Items'));
                const orderTotal = o.total ? Number(o.total) : items.reduce((s,it)=> s + (Number(it.price||0)*Number(it.quantity||0)), 0);
           %>
@@ -216,7 +211,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                   <% if (itemsPreview.length) { %>
                     <div class="muted" style="display:flex; flex-direction:column; gap:2px;">
                       <% itemsPreview.forEach(function(it){ %>
-                        <span><%= it.productName || ('Item #' + it.productId) %> · x<%= it.quantity || 0 %></span>
+                        <span><%= it.productName || ('Item #' + it.productId) %> x<%= it.quantity || 0 %></span>
                       <% }) %>
                       <% if (moreCount > 0) { %>
                         <span style="font-weight:600;">+ <%= moreCount %> more item(s)</span>
@@ -248,21 +243,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                 <div class="muted"><%= o.createdAt ? (o.createdAt.toLocaleString ? o.createdAt.toLocaleString() : o.createdAt) : '' %></div>
                 <div class="order-actions">
                   <a class="btn" href="/orders/<%= o.id %>">View more</a>
-                  <% if (canInvoice) { %>
-                    <a class="btn primary" href="/orders/<%= o.id %>/invoice" target="_blank">Invoice (PDF)</a>
-                  <% } %>
-                  <% if (canRefundRequest && !canCancel) { %>
-                    <% if (displayStatus === 'payment successful' || displayStatus === 'payment_successful') { %>
-                      <form method="POST" action="/orders/<%= o.id %>/refund" style="margin:0;">
-                        <button class="btn danger" type="submit">Request refund</button>
-                      </form>
-                    <% } else { %>
-                      <a class="btn danger" href="/refunds/request/<%= o.id %>">Request refund</a>
-                    <% } %>
-                  <% } %>
-                  <% if (!canRefundRequest && !canCancel && (statusKey === 'completed' || statusKey === 'cancelled' || statusKey === 'refunded')) { %>
-                    <div class="muted" style="font-size:12px;">Refund not available for completed orders.</div>
-                  <% } %>
+                  <a class="btn primary" href="/orders/<%= o.id %>/invoice" target="_blank">Invoice (PDF)</a>
                   <% if (canCancel) { %>
                     <form method="POST" action="/orders/<%= o.id %>/cancel" style="margin:0;">
                       <button class="btn danger" type="submit">Cancel Order</button>

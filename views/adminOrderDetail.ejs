@@ -34,7 +34,6 @@ th { color:var(--muted); font-weight:700; }
 </head>
 <body>
   <div class="shell">
-  <div class="shell">
     <nav class="nav">
       <div class="brand">
         <span class="dot"></span>
@@ -47,7 +46,7 @@ th { color:var(--muted); font-weight:700; }
         <a href="/admin/orders">Orders</a>
         <a href="/admin/reviews">Reviews</a>
         <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
+          <summary>User: <%= user.username %> v</summary>
           <div class="dropdown">
             <a href="/logout">Logout</a>
           </div>
@@ -61,7 +60,7 @@ th { color:var(--muted); font-weight:700; }
         <h2 style="margin:2px 0 6px;">Order details</h2>
         <p class="muted" style="margin:0;">Placed: <%= order.createdAt ? (order.createdAt.toLocaleString ? order.createdAt.toLocaleString() : order.createdAt) : '' %></p>
       </div>
-      <a href="/admin/orders" class="btn">← Back to orders</a>
+      <a href="/admin/orders" class="btn"><- Back to orders</a>
     </div>
 
     <div class="card" style="margin-top:14px;">
@@ -143,7 +142,7 @@ th { color:var(--muted); font-weight:700; }
           const canInvoice = paidStatuses.includes(statusLower);
         %>
         <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
-          <a class="btn" href="/admin/orders">Back to orders</a>
+      <a href="/admin/orders" class="btn"><- Back to orders</a>
           <% if (canInvoice) { %>
             <a class="btn primary" href="/admin/orders/<%= order.id %>/invoice" target="_blank">Invoice (PDF)</a>
           <% } %>
