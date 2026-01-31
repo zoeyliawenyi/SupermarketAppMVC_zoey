@@ -61,9 +61,68 @@ const User = {
         });
     },
 
+    findByStripeMembershipSubscriptionId: (subscriptionId, callback) => {
+        const sql = 'SELECT * FROM users WHERE stripeMembershipSubscriptionId = ? LIMIT 1';
+        db.query(sql, [subscriptionId], (err, results) => {
+            if (err) return callback(err);
+            callback(null, results && results[0] ? results[0] : null);
+        });
+    },
+
     updateStripeCustomerId: (id, stripeCustomerId, callback) => {
         const sql = 'UPDATE users SET stripeCustomerId = ? WHERE id = ?';
         db.query(sql, [stripeCustomerId, id], callback);
+    },
+
+    setZozoPlusActive: (id, stripeCustomerId, subscriptionId, currentPeriodEnd, callback) => {
+        const sql = `
+          UPDATE users
+          SET zozoPlusStatus = 'active',
+              stripeCustomerId = ?,
+              stripeMembershipSubscriptionId = ?,
+              zozoPlusActivatedAt = NOW(),
+              zozoPlusCurrentPeriodEnd = ?
+          WHERE id = ?
+        `;
+        db.query(sql, [stripeCustomerId || null, subscriptionId || null, currentPeriodEnd || null, id], callback);
+    },
+
+    setZozoPlusStatusByCustomerId: (stripeCustomerId, status, currentPeriodEnd, callback) => {
+        const sql = `
+          UPDATE users
+          SET zozoPlusStatus = ?,
+              stripeMembershipSubscriptionId = CASE WHEN ? = 'inactive' THEN NULL ELSE stripeMembershipSubscriptionId END,
+              zozoPlusActivatedAt = CASE WHEN ? = 'active' THEN COALESCE(zozoPlusActivatedAt, NOW()) ELSE zozoPlusActivatedAt END,
+              zozoPlusCurrentPeriodEnd = ?
+          WHERE stripeCustomerId = ?
+        `;
+        db.query(sql, [status, status, status, currentPeriodEnd || null, stripeCustomerId], callback);
+    },
+
+    setZozoPlusStatusBySubscriptionId: (subscriptionId, status, currentPeriodEnd, callback) => {
+        const clearSub = status === 'inactive' ? null : subscriptionId;
+        const sql = `
+          UPDATE users
+          SET zozoPlusStatus = ?,
+              stripeMembershipSubscriptionId = ?,
+              zozoPlusActivatedAt = CASE WHEN ? = 'active' THEN COALESCE(zozoPlusActivatedAt, NOW()) ELSE zozoPlusActivatedAt END,
+              zozoPlusCurrentPeriodEnd = ?
+          WHERE stripeMembershipSubscriptionId = ?
+        `;
+        db.query(sql, [status, clearSub, status, currentPeriodEnd || null, subscriptionId], callback);
+    },
+
+    getZozoPlusState: (id, callback) => {
+        const sql = `
+          SELECT zozoPlusStatus, stripeMembershipSubscriptionId, zozoPlusCurrentPeriodEnd
+          FROM users
+          WHERE id = ?
+          LIMIT 1
+        `;
+        db.query(sql, [id], (err, results) => {
+            if (err) return callback(err);
+            callback(null, results && results[0] ? results[0] : null);
+        });
     }
 };
 

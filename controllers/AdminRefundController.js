@@ -2,6 +2,82 @@ const Refund = require('../models/Refund');
 const { getStripe } = require('../services/stripe');
 const paypalService = require('../services/paypal');
 
+const processRefund = (refundId, adminId, cb) => {
+  Refund.getRefundDetailForAdmin(refundId, async (err, refund, items) => {
+    if (err || !refund) return cb(err || new Error('Refund not found'));
+    const status = (refund.status || '').toLowerCase();
+    if (status === 'refunded' || status === 'completed') {
+      return cb(new Error('Refund already completed'));
+    }
+    let amount = 0;
+    (items || []).forEach((it) => {
+      amount += Number(it.lineRefundAmount || 0);
+    });
+    if (!amount || amount <= 0) {
+      return cb(new Error('Refund amount must be greater than 0'));
+    }
+    Refund.setProcessing(refundId, adminId, async (setErr) => {
+      if (setErr) return cb(setErr);
+      let provider = 'manual';
+      const providerHint = (refund.paymentProvider || refund.paymentMethod || '').toLowerCase();
+      if (providerHint.includes('nets')) provider = 'nets';
+      if (providerHint.includes('paypal')) provider = 'paypal';
+      if (providerHint.includes('stripe')) provider = 'stripe';
+      let providerRef = null;
+      let rawResponse = null;
+      try {
+        if (provider === 'stripe') {
+          if (!refund.stripePaymentIntentId) throw new Error('Missing Stripe payment_intent_id');
+          const stripe = getStripe();
+          const stripeRefund = await stripe.refunds.create({
+            payment_intent: refund.stripePaymentIntentId,
+            amount: Math.round(amount * 100),
+          });
+          providerRef = stripeRefund.id;
+          rawResponse = JSON.stringify(stripeRefund);
+        } else if (provider === 'paypal') {
+          if (!refund.paypalCaptureId) throw new Error('Missing PayPal capture id');
+          const paypalRefund = await paypalService.refundCapture(refund.paypalCaptureId, amount);
+          providerRef = paypalRefund.id || paypalRefund.refund_id || null;
+          rawResponse = JSON.stringify(paypalRefund);
+        } else if (provider === 'nets') {
+          providerRef = `nets_refund_${refundId}_${Date.now()}`;
+          rawResponse = JSON.stringify({ simulated: true, providerRef });
+        } else {
+          providerRef = `manual_refund_${refundId}_${Date.now()}`;
+          rawResponse = JSON.stringify({ manual: true, providerRef });
+        }
+        Refund.markRefunded(
+          refundId,
+          adminId,
+          provider,
+          providerRef,
+          amount,
+          rawResponse,
+          (doneErr, info) => {
+            if (doneErr) return cb(doneErr);
+            cb(null, { provider, providerRef, amount, orderStatus: info && info.orderStatus });
+          }
+        );
+      } catch (providerErr) {
+        Refund.markRefundProcessFailed(
+          refundId,
+          adminId,
+          provider,
+          providerRef,
+          amount,
+          rawResponse,
+          providerErr.message || 'Refund provider error',
+          (failErr) => {
+            if (failErr) console.error('Refund failed update error:', failErr);
+            cb(providerErr);
+          }
+        );
+      }
+    });
+  });
+};
+
 const AdminRefundController = {
   list: (req, res) => {
     const status = req.query.status || '';
@@ -64,7 +140,7 @@ const AdminRefundController = {
     const decision = req.body.decision === 'rejected' ? 'rejected' : 'approved';
     const adminNote = req.body.adminNote || '';
     const rejectionReason = req.body.rejectionReason || '';
-    const inventoryDisposition = req.body.inventoryDisposition || null;
+    const inventoryDisposition = null;
     Refund.getRefundDetailForAdmin(refundId, (err, refund, items) => {
       if (err || !refund) {
         req.flash('error', 'Refund not found');
@@ -102,7 +178,7 @@ const AdminRefundController = {
     const decision = req.body.decision === 'rejected' ? 'rejected' : 'approved';
     const adminNote = req.body.adminNote || '';
     const rejectionReason = req.body.rejectionReason || '';
-    const inventoryDisposition = req.body.inventoryDisposition || null;
+    const inventoryDisposition = null;
     Refund.getRefundDetailForAdmin(refundId, (err, refund, items) => {
       if (err || !refund) {
         return res.status(404).json({ status: 'error', message: 'Refund not found' });
@@ -135,7 +211,7 @@ const AdminRefundController = {
   approve: (req, res) => {
     const refundId = parseInt(req.params.refundId, 10);
     const adminNote = req.body.adminNote || '';
-    const inventoryDisposition = req.body.inventoryDisposition || null;
+    const inventoryDisposition = null;
     Refund.getRefundDetailForAdmin(refundId, (err, refund, items) => {
       if (err || !refund) {
         req.flash('error', 'Refund not found');
@@ -159,10 +235,10 @@ const AdminRefundController = {
           if (updateErr) {
             console.error('Refund approve error:', updateErr);
             req.flash('error', updateErr.message || 'Unable to approve refund');
-          } else {
-            console.log('[refund] approved', { refundId, adminId: req.session.user.id });
-            req.flash('success', 'Refund approved');
+            return res.redirect(`/admin/refunds/${refundId}`);
           }
+          console.log('[refund] approved', { refundId, adminId: req.session.user.id });
+          req.flash('success', 'Refund approved');
           res.redirect(`/admin/refunds/${refundId}`);
         }
       );
@@ -200,108 +276,20 @@ const AdminRefundController = {
 
   process: async (req, res) => {
     const refundId = parseInt(req.params.refundId, 10);
-    Refund.getRefundDetailForAdmin(refundId, async (err, refund, items) => {
-      if (err || !refund) {
-        req.flash('error', 'Refund not found');
-        return res.redirect('/admin/refunds');
+    processRefund(refundId, req.session.user.id, (procErr) => {
+      if (procErr) {
+        req.flash('error', procErr.message || 'Refund processing failed');
+      } else {
+        req.flash('success', 'Refund processed');
       }
-      const status = (refund.status || '').toLowerCase();
-      if (status === 'refunded') {
-        req.flash('error', 'Refund already completed');
-        return res.redirect(`/admin/refunds/${refundId}`);
-      }
-      let amount = 0;
-      (items || []).forEach((it) => {
-        amount += Number(it.lineRefundAmount || 0);
-      });
-      if (!amount || amount <= 0) {
-        req.flash('error', 'Refund amount must be greater than 0');
-        return res.redirect(`/admin/refunds/${refundId}`);
-      }
-      Refund.setProcessing(refundId, req.session.user.id, async (setErr) => {
-        if (setErr) {
-          console.error('Refund process start error:', setErr);
-          req.flash('error', setErr.message || 'Unable to start refund processing');
-          return res.redirect(`/admin/refunds/${refundId}`);
-        }
-        let provider = 'manual';
-        const providerHint = (refund.paymentProvider || refund.paymentMethod || '').toLowerCase();
-        if (providerHint.includes('nets')) provider = 'nets';
-        if (providerHint.includes('paypal')) provider = 'paypal';
-        if (providerHint.includes('stripe')) provider = 'stripe';
-        let providerRef = null;
-        let rawResponse = null;
-        try {
-          if (provider === 'stripe') {
-            if (!refund.stripePaymentIntentId) {
-              throw new Error('Missing Stripe payment_intent_id');
-            }
-            const stripe = getStripe();
-            const stripeRefund = await stripe.refunds.create({
-              payment_intent: refund.stripePaymentIntentId,
-              amount: Math.round(amount * 100),
-            });
-            providerRef = stripeRefund.id;
-            rawResponse = JSON.stringify(stripeRefund);
-          } else if (provider === 'paypal') {
-            if (!refund.paypalCaptureId) {
-              throw new Error('Missing PayPal capture id');
-            }
-            const paypalRefund = await paypalService.refundCapture(refund.paypalCaptureId, amount);
-            providerRef = paypalRefund.id || paypalRefund.refund_id || null;
-            rawResponse = JSON.stringify(paypalRefund);
-          } else if (provider === 'nets') {
-            providerRef = `nets_refund_${refundId}_${Date.now()}`;
-            rawResponse = JSON.stringify({ simulated: true, providerRef });
-          } else {
-            providerRef = `manual_refund_${refundId}_${Date.now()}`;
-            rawResponse = JSON.stringify({ manual: true, providerRef });
-          }
-          Refund.markRefunded(
-            refundId,
-            req.session.user.id,
-            provider,
-            providerRef,
-            amount,
-            rawResponse,
-            (doneErr) => {
-              if (doneErr) {
-                console.error('Refund finalize error:', doneErr);
-                req.flash('error', doneErr.message || 'Unable to mark refund completed');
-              } else {
-                console.log('[refund] processed', { refundId, provider, providerRef, amount });
-                req.flash('success', 'Refund processed');
-              }
-              res.redirect(`/admin/refunds/${refundId}`);
-            }
-          );
-        } catch (providerErr) {
-          console.error('Refund provider error:', providerErr);
-          Refund.markRefundProcessFailed(
-            refundId,
-            req.session.user.id,
-            provider,
-            providerRef,
-            amount,
-            rawResponse,
-            providerErr.message || 'Refund provider error',
-            (failErr) => {
-              if (failErr) {
-                console.error('Refund failed update error:', failErr);
-              }
-              req.flash('error', providerErr.message || 'Refund processing failed');
-              res.redirect(`/admin/refunds/${refundId}`);
-            }
-          );
-        }
-      });
+      res.redirect(`/admin/refunds/${refundId}`);
     });
   },
 
   apiApprove: (req, res) => {
     const refundId = parseInt(req.params.refundId, 10);
     const adminNote = req.body.adminNote || '';
-    const inventoryDisposition = req.body.inventoryDisposition || null;
+    const inventoryDisposition = null;
     Refund.getRefundDetailForAdmin(refundId, (err, refund, items) => {
       if (err || !refund) {
         return res.status(404).json({ status: 'error', message: 'Refund not found' });
@@ -358,83 +346,11 @@ const AdminRefundController = {
 
   apiProcess: async (req, res) => {
     const refundId = parseInt(req.params.refundId, 10);
-    Refund.getRefundDetailForAdmin(refundId, async (err, refund, items) => {
-      if (err || !refund) {
-        return res.status(404).json({ status: 'error', message: 'Refund not found' });
+    processRefund(refundId, req.session.user.id, (procErr, info) => {
+      if (procErr) {
+        return res.status(400).json({ status: 'error', message: procErr.message || 'Refund processing failed' });
       }
-      let amount = 0;
-      (items || []).forEach((it) => {
-        amount += Number(it.lineRefundAmount || 0);
-      });
-      if (!amount || amount <= 0) {
-        return res.status(400).json({ status: 'error', message: 'Refund amount must be greater than 0' });
-      }
-      Refund.setProcessing(refundId, req.session.user.id, async (setErr) => {
-        if (setErr) {
-          console.error('Refund process start error:', setErr);
-          return res.status(400).json({ status: 'error', message: setErr.message || 'Unable to start refund processing' });
-        }
-        let provider = 'manual';
-        const providerHint = (refund.paymentProvider || refund.paymentMethod || '').toLowerCase();
-        if (providerHint.includes('nets')) provider = 'nets';
-        if (providerHint.includes('paypal')) provider = 'paypal';
-        if (providerHint.includes('stripe')) provider = 'stripe';
-        let providerRef = null;
-        let rawResponse = null;
-        try {
-          if (provider === 'stripe') {
-            if (!refund.stripePaymentIntentId) throw new Error('Missing Stripe payment_intent_id');
-            const stripe = getStripe();
-            const stripeRefund = await stripe.refunds.create({
-              payment_intent: refund.stripePaymentIntentId,
-              amount: Math.round(amount * 100),
-            });
-            providerRef = stripeRefund.id;
-            rawResponse = JSON.stringify(stripeRefund);
-          } else if (provider === 'paypal') {
-            if (!refund.paypalCaptureId) throw new Error('Missing PayPal capture id');
-            const paypalRefund = await paypalService.refundCapture(refund.paypalCaptureId, amount);
-            providerRef = paypalRefund.id || paypalRefund.refund_id || null;
-            rawResponse = JSON.stringify(paypalRefund);
-          } else if (provider === 'nets') {
-            providerRef = `nets_refund_${refundId}_${Date.now()}`;
-            rawResponse = JSON.stringify({ simulated: true, providerRef });
-          } else {
-            providerRef = `manual_refund_${refundId}_${Date.now()}`;
-            rawResponse = JSON.stringify({ manual: true, providerRef });
-          }
-          Refund.markRefunded(
-            refundId,
-            req.session.user.id,
-            provider,
-            providerRef,
-            amount,
-            rawResponse,
-            (doneErr) => {
-              if (doneErr) {
-                console.error('Refund finalize error:', doneErr);
-                return res.status(400).json({ status: 'error', message: doneErr.message || 'Unable to mark refund completed' });
-              }
-              res.json({ status: 'ok', refundId, provider, providerRef, amount });
-            }
-          );
-        } catch (providerErr) {
-          console.error('Refund provider error:', providerErr);
-          Refund.markRefundProcessFailed(
-            refundId,
-            req.session.user.id,
-            provider,
-            providerRef,
-            amount,
-            rawResponse,
-            providerErr.message || 'Refund provider error',
-            (failErr) => {
-              if (failErr) console.error('Refund failed update error:', failErr);
-              res.status(400).json({ status: 'error', message: providerErr.message || 'Refund processing failed' });
-            }
-          );
-        }
-      });
+      res.json({ status: 'ok', refundId, ...info });
     });
   },
 

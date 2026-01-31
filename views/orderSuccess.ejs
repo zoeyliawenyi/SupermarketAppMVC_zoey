@@ -107,17 +107,7 @@ body {
 </head>
 <body>
   <div class="container">
-    <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-      <div class="nav-links">
-        <a href="/shopping">Home</a>
-        <a href="/favorites">Favorites</a>
-        <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="page-grid">
       <div class="status-card success">
@@ -135,3 +125,4 @@ body {
   </div>
 </body>
 </html>
+

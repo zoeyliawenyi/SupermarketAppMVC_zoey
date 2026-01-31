@@ -15,6 +15,14 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 .nav-links { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
 .nav-links a { padding:8px 14px; border-radius:10px; color:var(--text); font-weight:500; text-decoration:none; }
 .nav-links a:hover { background: rgba(255,92,138,0.12); }
+.cart-link { position: relative; }
+.cart-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:var(--accent); color:#fff; font-size:12px; margin-left:6px; }
+.user-menu { position: relative; }
+.user-menu summary { list-style:none; cursor:pointer; padding:8px 12px; border-radius:10px; }
+.user-menu[open] summary, .user-menu summary:hover { background: rgba(255,92,138,0.12); }
+.user-menu .dropdown { position:absolute; right:0; top:110%; background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); min-width:140px; padding:8px 0; z-index:20; }
+.user-menu .dropdown a { display:block; padding:8px 12px; color:var(--text); text-decoration:none; }
+.user-menu .dropdown a:hover { background: rgba(255,92,138,0.12); }
 .card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px; margin:14px auto 0; }
 .plan-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; }
 .plan { border:1px solid var(--border); border-radius:14px; padding:16px; display:grid; gap:10px; }
@@ -27,37 +35,47 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand"><span class="dot"></span>ZozoMart</div>
-      <div class="nav-links">
-        <a href="/shopping">Home</a>
-        <a href="/favorites">Favorites</a>
-        <a href="/orders">My Orders</a>
-        <a href="/account">My Account</a>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="card">
       <h2 style="margin:0 0 6px;">Membership Plans</h2>
       <p class="muted" style="margin:0 0 12px;">Subscribe to unlock member perks.</p>
-      <% if (canceled) { %>
+      <% const isActive = user && (user.zozoPlusStatus || '').toLowerCase() === 'active'; %>
+      <% if (!isActive && canceled) { %>
         <div class="alert">Checkout cancelled. You can try again anytime.</div>
+      <% } %>
+      <% if (error) { %>
+        <div class="alert"><%= error %></div>
       <% } %>
       <div class="plan-grid">
         <% plans.forEach(function(plan){ %>
           <div class="plan">
-            <span class="badge">Popular</span>
+            <% if (isActive) { %>
+              <span class="badge" id="zozoPlusBadge">ZozoPlus Active</span>
+            <% } else { %>
+              <span class="badge" id="zozoPlusBadge">ZozoPlus</span>
+            <% } %>
             <h3><%= plan.name %></h3>
             <p class="muted" style="margin:0;"> <%= plan.description %></p>
             <div style="font-size:20px; font-weight:700;"><%= plan.priceLabel %></div>
+            <div class="muted" id="zozoPlusNext" style="font-size:13px;">
+              <% if (user && user.zozoPlusCurrentPeriodEnd) { %>
+                Next billing: <%= new Date(user.zozoPlusCurrentPeriodEnd).toLocaleDateString() %>
+              <% } %>
+            </div>
             <ul style="margin:0; padding-left:18px; color:#374151;">
               <% (plan.features || []).forEach(function(f){ %>
                 <li><%= f %></li>
               <% }) %>
             </ul>
-            <button class="cta" type="button" data-price="<%= plan.priceId %>" <%= plan.priceId ? '' : 'disabled' %>>Subscribe with Stripe</button>
-            <% if (!plan.priceId) { %>
-              <div class="muted" style="font-size:12px;">Set STRIPE_PRICE_ZOZOPLUS in .env</div>
+            <% if (isActive) { %>
+              <form method="POST" action="/subscriptions/zozoplus/cancel" style="margin:0;" id="zozoPlusCancelForm">
+                <button class="cta" type="submit" style="background:linear-gradient(135deg,#f87171,#dc2626);">Unsubscribe</button>
+              </form>
+            <% } else { %>
+              <form method="POST" action="/subscriptions/checkout" style="margin:0;" id="zozoPlusSubscribeForm">
+                <button class="cta" id="zozoPlusSubscribeBtn" type="submit" <%= plan.priceId ? '' : 'disabled' %>>Subscribe with Stripe</button>
+              </form>
             <% } %>
           </div>
         <% }) %>
@@ -66,29 +84,34 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
   </div>
 
   <script>
-    document.querySelectorAll('button[data-price]').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const priceId = btn.getAttribute('data-price');
-        if (!priceId) return;
-        btn.disabled = true;
-        try {
-          const res = await fetch('/subscriptions/stripe/checkout-session', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ priceId })
-          });
-          const data = await res.json();
-          if (!data?.success || !data.url) {
-            throw new Error(data?.message || 'Unable to start checkout.');
-          }
-          window.location.href = data.url;
-        } catch (err) {
-          alert(err.message || 'Unable to start Stripe checkout.');
-        } finally {
-          btn.disabled = false;
+    (async () => {
+      try {
+        const res = await fetch('/subscriptions/me', { credentials: 'same-origin' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data || !data.success) return;
+        const badge = document.getElementById('zozoPlusBadge');
+        const next = document.getElementById('zozoPlusNext');
+        const subForm = document.getElementById('zozoPlusSubscribeForm');
+        const cancelForm = document.getElementById('zozoPlusCancelForm');
+        if (badge) {
+          badge.textContent = data.status === 'active' ? 'ZozoPlus Active' : 'ZozoPlus';
         }
-      });
-    });
+        if (next) {
+          next.textContent = data.currentPeriodEnd
+            ? `Next billing: ${new Date(data.currentPeriodEnd).toLocaleDateString()}`
+            : '';
+        }
+        if (data.status === 'active') {
+          if (subForm) subForm.style.display = 'none';
+          if (cancelForm) cancelForm.style.display = 'block';
+        } else {
+          if (subForm) subForm.style.display = 'block';
+          if (cancelForm) cancelForm.style.display = 'none';
+        }
+      } catch (e) {}
+    })();
   </script>
 </body>
 </html>
+

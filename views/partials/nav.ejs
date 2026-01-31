@@ -1,0 +1,55 @@
+<%
+  const hasUser = typeof user !== 'undefined' && user;
+  const isAdmin = hasUser && user.role === 'admin';
+  const cartCountSafe =
+    typeof cartCount !== 'undefined' && Number(cartCount) > 0 ? Number(cartCount) : 0;
+%>
+<nav class="nav">
+  <div class="brand">
+    <span class="dot"></span>
+    ZozoMart
+  </div>
+  <div class="nav-links">
+    <% if (isAdmin) { %>
+      <a href="/admin/dashboard">Dashboard</a>
+      <a href="/inventory">Inventory</a>
+      <a href="/admin/users">Users</a>
+      <a href="/admin/orders">Orders</a>
+      <a href="/admin/refunds">Refunds</a>
+      <a href="/admin/reviews">Reviews</a>
+    <% } else { %>
+      <a href="/shopping">Home</a>
+      <a href="/favorites">Favorites</a>
+      <a href="/cart" class="cart-link">Cart
+        <% if (cartCountSafe > 0) { %>
+          <span class="cart-badge"><%= cartCountSafe %></span>
+        <% } %>
+      </a>
+      <a href="/orders">Orders</a>
+      <a href="/refunds">Refunds</a>
+      <a href="/subscriptions">Subscription</a>
+    <% } %>
+
+    <% if (hasUser) { %>
+      <% if (isAdmin) { %>
+        <span class="admin-label">Admin: <%= user.username %></span>
+        <a href="/logout">Logout</a>
+      <% } else { %>
+        <details class="user-menu">
+          <summary>User: <%= user.username %> v</summary>
+          <div class="dropdown">
+            <a href="/account">My Account</a>
+            <a href="/orders">My Orders</a>
+            <a href="/refunds">My Refunds</a>
+            <a href="/subscriptions">Subscription</a>
+            <a href="/reviews">My Reviews</a>
+            <a href="/logout">Logout</a>
+          </div>
+        </details>
+      <% } %>
+    <% } else { %>
+      <a href="/login">Login</a>
+      <a href="/register">Register</a>
+    <% } %>
+  </div>
+</nav>

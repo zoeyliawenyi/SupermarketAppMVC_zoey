@@ -1,17 +1,16 @@
 const Order = require("../models/Order");
-const OrderItem = require("../models/OrderItem");
 const Cart = require("../models/Cart");
 const netsService = require("../services/nets");
-const db = require("../db");
+const NetsTransaction = require("../models/NetsTransaction");
+const User = require("../models/User");
 const { buildCheckoutSnapshot } = require("../services/checkout");
 const { finalizePaidOrder, updateOrderStatus } = require("../services/orderFinalize");
+const { normalizeStatus } = require('../utils/status');
 
 const getNetsTxnByRef = (txnRetrievalRef) =>
   new Promise((resolve, reject) => {
-    db.query(
-      'SELECT * FROM nets_transactions WHERE txnRetrievalRef = ? ORDER BY createdAt DESC LIMIT 1',
-      [txnRetrievalRef],
-      (err, rows) => (err ? reject(err) : resolve(rows && rows[0] ? rows[0] : null))
+    NetsTransaction.findLatestByRef(txnRetrievalRef, (err, row) =>
+      err ? reject(err) : resolve(row)
     );
   });
 
@@ -29,42 +28,17 @@ const canAccessOrder = (req, order) => {
 const createPendingOrder = (req, snapshot) =>
   new Promise((resolve, reject) => {
     const userId = req.session.user.id;
-    const isPickup = (snapshot.shipping.option || '').toLowerCase() === 'pickup';
-    const createWithCode = (pickupCode) => {
-      db.beginTransaction((txErr) => {
-        if (txErr) return reject(txErr);
-        const payload = {
-          userId,
-          total: snapshot.total,
-          paymentMethod: 'nets-qr',
-          paymentProvider: 'nets',
-          deliveryType: snapshot.shipping.option,
+    Order.createPendingNetsOrder(
+      userId,
+      {
+        ...snapshot,
+        shipping: {
+          ...snapshot.shipping,
           address: snapshot.shipping.address || req.session.user.address,
-          pickupCode: pickupCode || null,
-          pickupCodeStatus: pickupCode ? 'active' : null,
-          pickupCodeRedeemedAt: null,
-          status: 'pending_payment',
-        };
-        Order.create(payload, (orderErr, orderId) => {
-          if (orderErr) return db.rollback(() => reject(orderErr));
-          OrderItem.createMany(orderId, snapshot.cartForOrder, (itemErr) => {
-            if (itemErr) return db.rollback(() => reject(itemErr));
-            db.commit((commitErr) => {
-              if (commitErr) return db.rollback(() => reject(commitErr));
-              resolve(orderId);
-            });
-          });
-        });
-      });
-    };
-    if (isPickup) {
-      Order.generatePickupCode((codeErr, code) => {
-        if (codeErr) return reject(codeErr);
-        createWithCode(code);
-      });
-    } else {
-      createWithCode(null);
-    }
+        },
+      },
+      (err, orderId) => (err ? reject(err) : resolve(orderId))
+    );
   });
 
 const finalizeNetsOrder = async (req, res, status) => {
@@ -87,32 +61,24 @@ const finalizeNetsOrder = async (req, res, status) => {
     return res.status(403).send('Forbidden');
   }
 
-  const statusLower = (order.status || '').toLowerCase();
-  if (statusLower === 'payment successful') {
+  const statusLower = normalizeStatus(order.status || '');
+  if (statusLower === 'payment_successful') {
     return res.redirect(`/orders/success?id=${order.id}`);
   }
 
-  if (status === 'payment successful') {
+  if (status === 'payment_successful') {
     await finalizePaidOrder(req, order.id);
     req.session.pendingNetsOrderId = null;
     await new Promise((resolve) => {
-      db.query(
-        'UPDATE nets_transactions SET status = ? WHERE orderId = ? AND txnRetrievalRef = ?',
-        ['completed', order.id, txnRetrievalRef],
-        () => resolve()
-      );
+      NetsTransaction.updateStatusByRef(txnRetrievalRef, 'completed', () => resolve());
     });
     return res.redirect(`/orders/success?id=${order.id}`);
   }
 
-  await updateOrderStatus(order.id, 'payment failed');
+  await updateOrderStatus(order.id, 'payment_failed');
   req.session.pendingNetsOrderId = null;
   await new Promise((resolve) => {
-    db.query(
-      'UPDATE nets_transactions SET status = ? WHERE orderId = ? AND txnRetrievalRef = ?',
-      ['failed', order.id, txnRetrievalRef],
-      () => resolve()
-    );
+    NetsTransaction.updateStatusByRef(txnRetrievalRef, 'failed', () => resolve());
   });
   return res.redirect(`/orders/fail?id=${order.id}`);
 };
@@ -121,10 +87,89 @@ const NetsController = {
   start: async (req, res) => {
     try {
       const userId = req.session.user.id;
+      const requestedOrderId = parseInt(req.body?.orderId || req.query?.orderId, 10);
+      if (!Number.isNaN(requestedOrderId)) {
+        try {
+          const order = await getOrderById(requestedOrderId);
+          if (!order || !canAccessOrder(req, order)) {
+            req.flash('error', 'Access denied for this order.');
+            return res.redirect('/orders');
+          }
+          const statusLower = normalizeStatus(order.status || '');
+          const methodLower = (order.paymentMethod || '').toLowerCase();
+          if (!['pending_payment', 'payment_failed'].includes(statusLower)) {
+            req.flash('error', 'This order is not eligible for NETS retry.');
+            return res.redirect(`/orders/${order.id}`);
+          }
+          if (methodLower !== 'nets-qr') {
+            req.flash('error', 'This order was not placed with NETS QR.');
+            return res.redirect(`/orders/${order.id}`);
+          }
+
+          const { qrData, txnRetrievalRef, courseInitId, qrCode } =
+            await netsService.requestQrCode(order.total);
+
+          if (
+            qrData.response_code === "00" &&
+            qrData.txn_status === 1 &&
+            qrCode
+          ) {
+            await new Promise((resolve, reject) => {
+              Order.updateNetsRefs(order.id, txnRetrievalRef, courseInitId, (err) =>
+                err ? reject(err) : resolve()
+              );
+            });
+            await new Promise((resolve) => {
+              NetsTransaction.insert(
+                {
+                  userId,
+                  orderId: order.id,
+                  txnRetrievalRef,
+                  courseInitId,
+                  amount: order.total,
+                  currency: 'SGD',
+                  status: 'pending',
+                  rawResponse: qrData || {}
+                },
+                () => resolve()
+              );
+            });
+            req.session.pendingNetsOrderId = order.id;
+            console.log('[nets] retry qr created', { orderId: order.id, txnRetrievalRef, amount: order.total });
+            return res.render("netsQr", {
+              total: Number(order.total),
+              title: "Scan to Pay",
+              qrCodeUrl: `data:image/png;base64,${qrCode}`,
+              txnRetrievalRef,
+              courseInitId,
+              timer: 300,
+              returnUrl: `/orders/${order.id}`,
+              cancelUrl: `/nets-qr/cancel?orderId=${order.id}&txn_retrieval_ref=${txnRetrievalRef}&mode=retry&return=${encodeURIComponent(`/orders/${order.id}`)}`,
+            });
+          }
+
+          return res.render("netsTxnFailStatus", {
+            message: qrData.error_message || "Unable to generate NETS QR code.",
+          });
+        } catch (error) {
+          console.error("NETS retry error:", error.message);
+          return res.render("netsTxnFailStatus", {
+            message: "Unable to generate NETS QR code.",
+          });
+        }
+      }
+
       Cart.getByUserId(userId, async (err, cart) => {
         if (err || !cart || cart.length === 0) {
           req.flash("error", "Your cart is empty");
           return res.redirect("/cart");
+        }
+
+        const freshUser = await new Promise((resolve, reject) => {
+          User.findById(userId, (uErr, row) => (uErr ? reject(uErr) : resolve(row)));
+        });
+        if (freshUser) {
+          req.session.user = { ...req.session.user, ...freshUser };
         }
 
         const snapshot = buildCheckoutSnapshot(req, cart, 'nets-qr');
@@ -142,7 +187,12 @@ const NetsController = {
                 err ? reject(err) : resolve(row)
               );
             });
-            const statusLower = (order?.status || '').toLowerCase();
+            const statusLower = normalizeStatus(order?.status || '');
+            if (statusLower === 'payment_failed') {
+              req.session.pendingNetsOrderId = null;
+              orderId = null;
+              order = null;
+            }
             const totalMatch = order && Number(order.total || 0).toFixed(2) === Number(snapshot.total || 0).toFixed(2);
             const methodMatch = order && (order.paymentMethod || '').toLowerCase() === 'nets-qr';
             if (!order || order.userId !== userId || statusLower !== 'pending_payment' || !totalMatch || !methodMatch) {
@@ -175,29 +225,31 @@ const NetsController = {
               );
             });
             await new Promise((resolve) => {
-              db.query(
-                `INSERT INTO nets_transactions (userId, orderId, txnRetrievalRef, courseInitId, amount, currency, status, rawResponse)
-                 VALUES (?, ?, ?, ?, ?, 'SGD', 'pending', ?)`,
-                [
+              NetsTransaction.insert(
+                {
                   userId,
-                  order.id,
+                  orderId: order.id,
                   txnRetrievalRef,
                   courseInitId,
-                  order.total,
-                  JSON.stringify(qrData || {}),
-                ],
+                  amount: order.total,
+                  currency: 'SGD',
+                  status: 'pending',
+                  rawResponse: qrData || {}
+                },
                 () => resolve()
               );
             });
             console.log('[nets] qr created', { orderId: order.id, txnRetrievalRef, amount: order.total });
 
             return res.render("netsQr", {
-              total: order.total,
+              total: Number(order.total),
               title: "Scan to Pay",
               qrCodeUrl: `data:image/png;base64,${qrCode}`,
               txnRetrievalRef,
               courseInitId,
               timer: 300,
+              returnUrl: '/checkout',
+              cancelUrl: `/nets-qr/cancel?orderId=${order.id}&txn_retrieval_ref=${txnRetrievalRef}&mode=checkout&return=${encodeURIComponent('/checkout')}`,
             });
           }
 
@@ -238,14 +290,12 @@ const NetsController = {
     }
     let courseInitId = "";
     try {
-      const row = await new Promise((resolve, reject) => {
-        db.query(
-          'SELECT courseInitId FROM nets_transactions WHERE txnRetrievalRef = ? ORDER BY createdAt DESC LIMIT 1',
-          [txnRetrievalRef],
-          (err, rows) => (err ? reject(err) : resolve(rows && rows[0] ? rows[0] : null))
+      const courseId = await new Promise((resolve, reject) => {
+        NetsTransaction.findCourseInitIdByRef(txnRetrievalRef, (err, val) =>
+          err ? reject(err) : resolve(val)
         );
       });
-      courseInitId = row && row.courseInitId ? row.courseInitId : "";
+      courseInitId = courseId || "";
     } catch (e) {
       courseInitId = "";
     }
@@ -286,8 +336,8 @@ const NetsController = {
     req.on("close", cleanup);
   },
 
-  success: (req, res) => finalizeNetsOrder(req, res, "payment successful"),
-  fail: (req, res) => finalizeNetsOrder(req, res, "payment failed"),
+  success: (req, res) => finalizeNetsOrder(req, res, "payment_successful"),
+  fail: (req, res) => finalizeNetsOrder(req, res, "payment_failed"),
 
   status: async (req, res) => {
     try {
@@ -304,9 +354,9 @@ const NetsController = {
       if (statusLower === 'failed') status = 'failed';
       if (statusLower === 'expired') status = 'expired';
       if (statusLower === 'cancelled') status = 'cancelled';
-      if ((order?.status || '').toLowerCase() === 'payment successful') status = 'success';
-      if ((order?.status || '').toLowerCase() === 'payment failed') status = 'failed';
-      if ((order?.status || '').toLowerCase() === 'cancelled') status = 'cancelled';
+      if (normalizeStatus(order?.status || '') === 'payment_successful') status = 'success';
+      if (normalizeStatus(order?.status || '') === 'payment_failed') status = 'failed';
+      if (normalizeStatus(order?.status || '').startsWith('cancelled')) status = 'cancelled';
 
       res.json({
         success: true,
@@ -329,18 +379,14 @@ const NetsController = {
       const order = await getOrderById(txn.orderId);
       if (!canAccessOrder(req, order)) return res.status(403).json({ success: false, message: 'Forbidden' });
 
-      const statusLower = (order?.status || '').toLowerCase();
-      if (statusLower === 'payment successful') {
+      const statusLower = normalizeStatus(order?.status || '');
+      if (statusLower === 'payment_successful') {
         return res.json({ success: true, status: 'success', orderId: order.id, requestId });
       }
 
       await finalizePaidOrder(req, order.id);
       await new Promise((resolve) => {
-        db.query(
-          'UPDATE nets_transactions SET status = ? WHERE id = ?',
-          ['completed', txn.id],
-          () => resolve()
-        );
+        NetsTransaction.updateStatusById(txn.id, 'completed', () => resolve());
       });
       res.json({ success: true, status: 'success', orderId: order.id, requestId });
     } catch (error) {
@@ -358,13 +404,9 @@ const NetsController = {
       const order = await getOrderById(txn.orderId);
       if (!canAccessOrder(req, order)) return res.status(403).json({ success: false, message: 'Forbidden' });
 
-      await updateOrderStatus(order.id, 'payment failed');
+      await updateOrderStatus(order.id, 'payment_failed');
       await new Promise((resolve) => {
-        db.query(
-          'UPDATE nets_transactions SET status = ? WHERE id = ?',
-          ['failed', txn.id],
-          () => resolve()
-        );
+        NetsTransaction.updateStatusById(txn.id, 'failed', () => resolve());
       });
       res.json({ success: true, status: 'failed', orderId: order.id, requestId });
     } catch (error) {
@@ -382,13 +424,9 @@ const NetsController = {
       const order = await getOrderById(txn.orderId);
       if (!canAccessOrder(req, order)) return res.status(403).json({ success: false, message: 'Forbidden' });
 
-      await updateOrderStatus(order.id, 'cancelled');
+      await updateOrderStatus(order.id, 'cancelled_pending_payment');
       await new Promise((resolve) => {
-        db.query(
-          'UPDATE nets_transactions SET status = ? WHERE id = ?',
-          ['cancelled', txn.id],
-          () => resolve()
-        );
+        NetsTransaction.updateStatusById(txn.id, 'cancelled', () => resolve());
       });
       res.json({ success: true, status: 'cancelled', orderId: order.id, requestId });
     } catch (error) {
@@ -397,25 +435,56 @@ const NetsController = {
     }
   },
 
+  cancelFromQr: async (req, res) => {
+    try {
+      const orderId = parseInt(req.query.orderId, 10) || req.session.pendingNetsOrderId;
+      const txnRetrievalRef = req.query.txn_retrieval_ref;
+      const mode = (req.query.mode || 'checkout').toLowerCase();
+      const returnUrl = req.query.return || (mode === 'retry' && orderId ? `/orders/${orderId}` : '/checkout');
+
+      if (!orderId) {
+        req.flash('error', 'No pending NETS order found.');
+        return res.redirect(returnUrl);
+      }
+
+      const order = await getOrderById(orderId);
+      if (!order) return res.redirect(returnUrl);
+      if (!canAccessOrder(req, order)) return res.status(403).send('Forbidden');
+
+      const statusLower = normalizeStatus(order.status || '');
+      if (statusLower === 'payment_successful' || statusLower === 'completed') {
+        return res.redirect(`/orders/${order.id}`);
+      }
+
+      await updateOrderStatus(order.id, 'payment_failed');
+      await new Promise((resolve) => {
+        if (txnRetrievalRef) {
+          NetsTransaction.updateStatusByRef(txnRetrievalRef, 'cancelled', () => resolve());
+        } else {
+          NetsTransaction.updateStatusByOrderId(order.id, 'cancelled', () => resolve());
+        }
+      });
+
+      req.session.pendingNetsOrderId = null;
+      req.flash('error', 'NETS payment was cancelled.');
+      return res.redirect(`/orders/fail?id=${order.id}`);
+    } catch (error) {
+      console.error('NETS cancel from QR error:', error);
+      req.flash('error', 'Unable to cancel NETS order.');
+      return res.redirect('/checkout');
+    }
+  },
+
   devTxn: (req, res) => {
     const orderId = parseInt(req.params.orderId, 10);
     if (Number.isNaN(orderId)) {
       return res.status(400).json({ success: false, message: "Invalid orderId" });
     }
-    const sql = `
-      SELECT id, orderId, txnRetrievalRef, courseInitId, amount, currency, status, createdAt, updatedAt
-      FROM nets_transactions
-      WHERE orderId = ?
-      ORDER BY createdAt DESC
-      LIMIT 1
-    `;
-    const db = require("../db");
-    db.query(sql, [orderId], (err, rows) => {
+    NetsTransaction.findLatestByOrderId(orderId, (err, row) => {
       if (err) {
         console.error("NETS devTxn error:", err);
         return res.status(500).json({ success: false, message: "Database error" });
       }
-      const row = rows && rows[0] ? rows[0] : null;
       res.json({ success: true, txn: row });
     });
   },

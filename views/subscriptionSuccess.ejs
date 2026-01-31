@@ -9,6 +9,20 @@
 :root { --text:#1f2430; --muted:#6b7280; --border:#e5e7eb; --shadow:0 12px 30px rgba(17,24,39,0.08); --radius:16px; --accent:#ff5c8a; --accent2:#ff8fb1; }
 body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff); color:var(--text); }
 .shell { max-width: 920px; margin: 0 auto; padding: 20px; }
+.nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; box-shadow:var(--shadow); margin-bottom:14px; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+.brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,var(--accent),var(--accent2)); box-shadow:0 0 10px rgba(255,92,138,0.6); }
+.nav-links { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.nav-links a { padding:8px 14px; border-radius:10px; color:var(--text); font-weight:500; text-decoration:none; }
+.nav-links a:hover { background: rgba(255,92,138,0.12); }
+.cart-link { position: relative; }
+.cart-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:var(--accent); color:#fff; font-size:12px; margin-left:6px; }
+.user-menu { position: relative; }
+.user-menu summary { list-style:none; cursor:pointer; padding:8px 12px; border-radius:10px; }
+.user-menu[open] summary, .user-menu summary:hover { background: rgba(255,92,138,0.12); }
+.user-menu .dropdown { position:absolute; right:0; top:110%; background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); min-width:140px; padding:8px 0; z-index:20; }
+.user-menu .dropdown a { display:block; padding:8px 12px; color:var(--text); text-decoration:none; }
+.user-menu .dropdown a:hover { background: rgba(255,92,138,0.12); }
 .card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px; margin:14px auto 0; text-align:center; }
 .cta { padding:12px 16px; border:none; border-radius:12px; font-weight:600; cursor:pointer; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); color:#fff; text-decoration:none; display:inline-block; }
 .muted { color:var(--muted); }
@@ -16,11 +30,13 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 </head>
 <body>
   <div class="shell">
+    <%- include('partials/nav') %>
+
     <div class="card">
-      <h2 style="margin:0 0 6px;">Subscription started</h2>
-      <p class="muted">Thanks for joining ZozoPlus. Your subscription will be activated once Stripe confirms payment.</p>
+      <h2 style="margin:0 0 6px;">Subscription submitted</h2>
+      <p class="muted">Thanks for subscribing to ZozoPlus. Your membership will activate automatically once Stripe confirms payment.</p>
       <div style="margin-top:16px; display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-        <a class="cta" href="/subscriptions/manage">Manage subscription</a>
+        <a class="cta" href="/subscriptions">View subscription</a>
         <a class="cta" href="/shopping" style="background:#111827;">Continue shopping</a>
       </div>
     </div>

@@ -1,5 +1,4 @@
 const User = require('../models/User');
-const Subscription = require('../models/Subscription');
 
 const UserController = {
     showRegister: (req, res) => {
@@ -67,16 +66,6 @@ const UserController = {
                 }
                 req.session.user = user;
                 
-                // Restore cart from cookie if exists (legacy logic)
-                const savedCart = req.cookies && req.cookies.savedCart;
-                if (savedCart) {
-                    try {
-                        const parsed = JSON.parse(savedCart);
-                        if (Array.isArray(parsed)) req.session.cart = parsed;
-                    } catch (e) {}
-                    res.setClientCookie('savedCart', '', { maxAge: 1 });
-                }
-
                 req.flash('success', 'Login successful!');
                 return res.redirect(user.role === 'admin' ? '/inventory' : '/shopping');
             } else {
@@ -87,22 +76,21 @@ const UserController = {
     },
 
     logout: (req, res) => {
-        const cartSnapshot = req.session.cart || [];
         req.session.destroy(() => {
-            res.setClientCookie('savedCart', JSON.stringify(cartSnapshot), { maxAge: 7*24*60*60*1000 });
             res.redirect('/');
         });
     },
 
     showAccount: (req, res) => {
         const userId = req.session.user.id;
-        Subscription.getByUser(userId, (err, subscription) => {
-            if (err) console.error('Account subscription load error:', err);
-            res.render('account', { 
-                user: req.session.user, 
-                subscription: subscription || null,
-                messages: req.flash('success'), 
-                errors: req.flash('error') 
+        User.findById(userId, (err, freshUser) => {
+            if (!err && freshUser) {
+                req.session.user = { ...req.session.user, ...freshUser };
+            }
+            res.render('account', {
+                user: req.session.user,
+                messages: req.flash('success'),
+                errors: req.flash('error')
             });
         });
     },

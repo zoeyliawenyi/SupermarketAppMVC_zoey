@@ -22,8 +22,8 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 .card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; }
 .muted { color:var(--muted); }
 .status-row { display:flex; gap:12px; flex-wrap:wrap; align-items:center; }
-.status-chip { display:flex; align-items:center; gap:8px; padding:10px 12px; border-radius:12px; border:1px solid var(--border); background:#f9fafb; }
-.badge { padding:6px 10px; border-radius:999px; font-weight:700; font-size:12px; background:#e5e7eb; color:#1f2937; }
+.status-chip { display:flex; align-items:center; gap:10px; padding:12px 14px; border-radius:12px; border:1px solid var(--border); background:#f9fafb; min-width:180px; }
+.badge { padding:8px 12px; border-radius:999px; font-weight:700; font-size:13px; background:#e5e7eb; color:#1f2937; min-width:32px; text-align:center; }
 table { width:100%; border-collapse: collapse; }
 th, td { padding:12px 10px; border-bottom:1px solid var(--border); text-align:left; }
 th { color:var(--muted); font-weight:700; }
@@ -34,25 +34,7 @@ th { color:var(--muted); font-weight:700; }
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-      <div class="nav-links">
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/inventory">Inventory</a>
-        <a href="/admin/users">Users</a>
-        <a href="/admin/orders">Orders</a>
-        <a href="/admin/reviews">Reviews</a>
-        <details class="user-menu">
-          <summary>User: <%= user.username %> v</summary>
-          <div class="dropdown">
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
       <div>
@@ -66,17 +48,78 @@ th { color:var(--muted); font-weight:700; }
     <div class="card" style="margin-top:14px;">
       <h3 style="margin:0 0 8px;">Status</h3>
       <div class="status-row">
-        <div class="status-chip">
-          <span class="badge" style="background:#c8d9ff;">1</span>
-          <div>
-            <div style="font-weight:700;"><%= (order.status || 'pending') %></div>
-            <div class="muted">Current</div>
+        <% 
+          const ship = (order.deliveryType || '').toLowerCase();
+          const current = (order.status || '').trim().toLowerCase();
+          const currentKey = current.replace(/\\s+/g, '_');
+          const normalizedKey = currentKey === 'awaiting_payment' ? 'payment_failed' : currentKey;
+          const refundStatus = refund ? (refund.status || '').trim().toLowerCase() : '';
+          var hasRefund = !!refund;
+          const isCancelled = currentKey.startsWith('cancelled');
+          const cancelIsFailed = currentKey.includes('failed');
+          const cancelIsPending = currentKey.includes('pending');
+          let steps = [];
+          let currentIdx = -1;
+
+          if (hasRefund) {
+            const step2Label = (refundStatus === 'approved' || refundStatus === 'processing') ? 'Refund approved' : 'Refund requested';
+            const step3Label = (refundStatus === 'rejected') ? 'Refund rejected' : 'Refund completed';
+            steps = [
+              { num:1, label:'Payment Successful', key:'payment_successful' },
+              { num:2, label:step2Label, key:'refund_step2' },
+              { num:3, label:step3Label, key: refundStatus === 'rejected' ? 'refund_rejected' : 'refund_completed' },
+            ];
+            if (refundStatus === 'requested') currentIdx = 1;
+            else if (refundStatus === 'approved' || refundStatus === 'processing') currentIdx = 1;
+            else if (refundStatus === 'completed' || refundStatus === 'refunded' || refundStatus === 'rejected') currentIdx = 2;
+            else currentIdx = 1;
+          } else if (isCancelled) {
+            if (cancelIsFailed) {
+              steps = [
+                { num:1, label:'Payment Failed', key:'payment_failed' },
+                { num:2, label:'Order Cancelled', key:'cancelled' },
+              ];
+            } else if (cancelIsPending) {
+              steps = [
+                { num:1, label:'Awaiting payment', key:'pending_payment' },
+                { num:2, label:'Order Cancelled', key:'cancelled' },
+              ];
+            } else {
+              steps = [
+                { num:1, label:'Awaiting payment', key:'pending_payment' },
+                { num:2, label:'Order Cancelled', key:'cancelled' },
+              ];
+            }
+            currentIdx = steps.length - 1;
+          } else {
+            steps = [
+              { num:1, label:(normalizedKey==='payment_failed' ? 'Payment Failed' : (normalizedKey==='pending_payment' ? 'Awaiting payment' : 'Payment Successful')), key:(normalizedKey==='payment_failed' ? 'payment_failed' : (normalizedKey==='pending_payment' ? 'pending_payment' : 'payment_successful')) },
+              { num:2, label:'Packing', key:'packing' },
+              { num:3, label: ship.includes('pickup') ? 'Ready for pickup' : 'Out For Delivery', key: ship.includes('pickup') ? 'ready_for_pickup' : 'out_for_delivery' },
+              { num:4, label:'Completed', key:'completed' },
+            ];
+            currentIdx = steps.findIndex(s => s.key === normalizedKey);
+          }
+        %>
+        <% steps.forEach(function(step, idx){ 
+             const isDone = currentIdx >= idx && currentIdx !== -1;
+             const isCancelledStep = step.key === 'cancelled';
+             const isRefundCompleted = step.key === 'refund_completed';
+             const isRefundRejected = step.key === 'refund_rejected';
+             const badgeColor = step.key === 'payment_failed'
+               ? '#e03131'
+               : (isCancelledStep || isRefundRejected ? '#dc2626' : (isRefundCompleted ? '#ec4899' : (isDone ? '#16a34a' : '#e5e7eb')));
+             const badgeTextColor = (step.key === 'payment_failed' || isCancelledStep || isRefundCompleted || isRefundRejected) ? '#fff' : (isDone ? '#fff' : '#1f2937');
+             const mutedText = isDone ? 'Completed' : 'Pending';
+        %>
+          <div class="status-chip">
+            <span class="badge" style="background:<%= badgeColor %>; color:<%= badgeTextColor %>;"><%= step.num %></span>
+            <div>
+              <div style="font-weight:700;"><%= step.label %></div>
+              <div class="muted"><%= mutedText %></div>
+            </div>
           </div>
-        </div>
-        <div class="status-chip">
-          <span class="badge">2</span>
-          <div><div style="font-weight:700;">Next</div><div class="muted">Pending</div></div>
-        </div>
+        <% }) %>
       </div>
     </div>
 
@@ -127,9 +170,32 @@ th { color:var(--muted); font-weight:700; }
 
       <div class="summary">
         <h3 style="margin:0 0 10px;">Summary</h3>
-        <div style="display:grid; grid-template-columns: 1fr 1fr; row-gap:8px;">
-          <div class="muted">Status</div><div><%= order.status || 'placed' %></div>
-          <div class="muted">Payment</div><div><%= order.paymentMethod || '-' %></div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; row-gap:8px;">
+            <%
+              const summaryStatusKey = (order.status || '').trim().toLowerCase().replace(/\s+/g, '_');
+              const summaryStatusLabelMap = {
+                awaiting_payment: 'Payment failed',
+                pending_payment: 'Awaiting payment',
+                payment_failed: 'Payment failed',
+                payment_successful: 'Payment successful',
+                packing: 'Packing',
+                out_for_delivery: 'Out for delivery',
+                ready_for_pickup: 'Ready for pickup',
+                pickup_pending: 'Pickup pending',
+                completed: 'Completed',
+                cancelled: 'Cancelled',
+                cancelled_pending_payment: 'Cancelled',
+                cancelled_payment_failed: 'Cancelled',
+                refund_requested: 'Refund requested',
+                refund_rejected: 'Refund rejected',
+                refund_completed: 'Refunded',
+                refunded: 'Cancelled',
+                partially_refunded: 'Cancelled'
+              };
+              const summaryStatusLabel = summaryStatusLabelMap[summaryStatusKey] || (order.status || 'placed');
+            %>
+            <div class="muted">Status</div><div><%= summaryStatusLabel %></div>
+            <div class="muted">Payment</div><div><%= order.paymentMethod || '-' %></div>
           <div class="muted">Shipping</div><div><%= order.deliveryType || '-' %></div>
           <div class="muted">Ship to</div><div><%= order.address || '-' %></div>
           <div class="muted">Items subtotal</div><div>$<%= itemsSubtotal.toFixed(2) %></div>
@@ -137,9 +203,9 @@ th { color:var(--muted); font-weight:700; }
           <div class="muted" style="font-weight:700;">Order total</div><div style="font-weight:700;">$<%= total.toFixed(2) %></div>
         </div>
         <%
-          const statusLower = (order.status || '').trim().toLowerCase();
-          const paidStatuses = ['payment successful','payment_successful','packing','out for delivery','ready for pickup','completed'];
-          const canInvoice = paidStatuses.includes(statusLower);
+            const statusLower = (order.status || '').trim().toLowerCase().replace(/\s+/g, '_');
+            const paidStatuses = ['payment_successful','packing','out_for_delivery','ready_for_pickup','completed'];
+            const canInvoice = paidStatuses.includes(statusLower);
         %>
         <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
       <a href="/admin/orders" class="btn"><- Back to orders</a>
@@ -152,3 +218,4 @@ th { color:var(--muted); font-weight:700; }
   </div>
 </body>
 </html>
+

@@ -123,6 +123,248 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "App - Refunds",
+      "item": [
+        {
+          "name": "Login (User)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/login"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "email",
+                  "value": "user@example.com",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "user123",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cookie = pm.response.headers.get(\"set-cookie\");",
+                  "if (cookie) { pm.environment.set('userCookie', cookie.split(';')[0]); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/login"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "email",
+                  "value": "admin@zozomart.com",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "admin123",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const cookie = pm.response.headers.get(\"set-cookie\");",
+                  "if (cookie) { pm.environment.set('adminCookie', cookie.split(';')[0]); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request refund (API)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "Cookie",
+                "value": "{{userCookie}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/refunds/request"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "orderId",
+                  "value": "{{orderId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "refundType",
+                  "value": "partial_refund",
+                  "type": "text"
+                },
+                {
+                  "key": "reason",
+                  "value": "changed_mind",
+                  "type": "text"
+                },
+                {
+                  "key": "note",
+                  "value": "Request from Postman",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const json = pm.response.json && pm.response.json();",
+                  "if (json && json.refundId) { pm.environment.set(\"refundId\", json.refundId); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Request refund (Quick)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Cookie",
+                "value": "{{userCookie}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/refund"
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin approve refund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "Cookie",
+                "value": "{{adminCookie}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/refunds/{{refundId}}/approve"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": []
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin reject refund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "Cookie",
+                "value": "{{adminCookie}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/refunds/{{refundId}}/reject"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "rejectionReason",
+                  "value": "Not eligible",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Admin process refund",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/x-www-form-urlencoded"
+              },
+              {
+                "key": "Cookie",
+                "value": "{{adminCookie}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/admin/refunds/{{refundId}}/process"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": []
+            }
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

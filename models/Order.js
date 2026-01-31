@@ -1,4 +1,7 @@
 const connection = require('../db');
+const { normalizeStatus } = require('../utils/status');
+const OrderItem = require('./OrderItem');
+const Cart = require('./Cart');
 
 const Order = {
   create: (order, cb) => {
@@ -19,7 +22,7 @@ const Order = {
         order.pickupCode || null,
         order.pickupCodeStatus || null,
         order.pickupCodeRedeemedAt || null,
-        order.status || 'placed'
+        normalizeStatus(order.status || 'placed')
       ]);
     }
     connection.query(sql, [
@@ -33,7 +36,7 @@ const Order = {
       order.pickupCode || null,
       order.pickupCodeStatus || null,
       order.pickupCodeRedeemedAt || null,
-      order.status || 'placed'
+      normalizeStatus(order.status || 'placed')
     ], (err, result) => {
       if (err) return cb(err);
       cb(null, result.insertId);
@@ -73,7 +76,8 @@ const Order = {
 
   updateStatus: (id, status, cb) => {
     const sql = 'UPDATE orders SET status = ? WHERE id = ?';
-    connection.query(sql, [status, id], cb);
+    const normalized = normalizeStatus(status);
+    connection.query(sql, [normalized, id], cb);
   },
 
   updateStripePaymentIntent: (id, stripePaymentIntentId, cb) => {
@@ -104,7 +108,8 @@ const Order = {
 
   updateStatusByStripePaymentIntentId: (stripePaymentIntentId, status, cb) => {
     const sql = 'UPDATE orders SET status = ? WHERE stripePaymentIntentId = ?';
-    connection.query(sql, [status, stripePaymentIntentId], cb);
+    const normalized = normalizeStatus(status);
+    connection.query(sql, [normalized, stripePaymentIntentId], cb);
   },
 
   findByPayPalOrderId: (paypalOrderId, cb) => {
@@ -189,6 +194,181 @@ const Order = {
       });
     };
     tryCode();
+  }
+  ,
+  cancelPendingOrder: (orderId, userId, cancelledStatus, cb) => {
+    const sql = `
+      UPDATE orders
+      SET status = ?, cancelledAt = NOW()
+      WHERE id = ? AND userId = ?
+    `;
+    connection.query(sql, [cancelledStatus, orderId, userId], cb);
+  },
+
+  redeemPickup: (orderId, cb) => {
+    const sql = `
+      UPDATE orders
+      SET pickupCodeStatus = ?, pickupCodeRedeemedAt = NOW(), status = ?
+      WHERE id = ?
+    `;
+    connection.query(sql, ['redeemed', 'completed', orderId], cb);
+  },
+
+  createPendingNetsOrder: (userId, snapshot, cb) => {
+    const isPickup = (snapshot.shipping.option || '').toLowerCase() === 'pickup';
+    const createWithCode = (pickupCode) => {
+      connection.beginTransaction((txErr) => {
+        if (txErr) return cb(txErr);
+        const payload = {
+          userId,
+          total: snapshot.total,
+          paymentMethod: 'nets-qr',
+          paymentProvider: 'nets',
+          deliveryType: snapshot.shipping.option,
+          address: snapshot.shipping.address,
+          pickupCode: pickupCode || null,
+          pickupCodeStatus: pickupCode ? 'active' : null,
+          pickupCodeRedeemedAt: null,
+          status: 'pending_payment'
+        };
+        Order.create(payload, (orderErr, orderId) => {
+          if (orderErr) return connection.rollback(() => cb(orderErr));
+          OrderItem.createMany(orderId, snapshot.cartForOrder, (itemErr) => {
+            if (itemErr) return connection.rollback(() => cb(itemErr));
+            const orderedProductIds = (snapshot.cartForOrder || []).map((item) => item.productId);
+            Cart.clearItems(userId, orderedProductIds, (clearErr) => {
+              if (clearErr) {
+                console.error('Clear cart error (NETS pending):', clearErr);
+              }
+              connection.commit((commitErr) => {
+                if (commitErr) return connection.rollback(() => cb(commitErr));
+                cb(null, orderId);
+              });
+            });
+          });
+        });
+      });
+    };
+    if (isPickup) {
+      Order.generatePickupCode((codeErr, code) => {
+        if (codeErr) return cb(codeErr);
+        createWithCode(code);
+      });
+    } else {
+      createWithCode(null);
+    }
+  },
+
+  createPendingPayPalOrder: (userId, snapshot, cb) => {
+    const isPickup = (snapshot.shipping.option || '').toLowerCase() === 'pickup';
+    const createWithCode = (pickupCode) => {
+      connection.beginTransaction((txErr) => {
+        if (txErr) return cb(txErr);
+        const payload = {
+          userId,
+          total: snapshot.total,
+          paymentMethod: 'paypal',
+          paymentProvider: 'paypal',
+          deliveryType: snapshot.shipping.option,
+          address: snapshot.shipping.address,
+          pickupCode: pickupCode || null,
+          pickupCodeStatus: pickupCode ? 'active' : null,
+          pickupCodeRedeemedAt: null,
+          status: 'pending_payment'
+        };
+        Order.create(payload, (orderErr, orderId) => {
+          if (orderErr) return connection.rollback(() => cb(orderErr));
+          OrderItem.createMany(orderId, snapshot.cartForOrder, (itemErr) => {
+            if (itemErr) return connection.rollback(() => cb(itemErr));
+            const orderedProductIds = (snapshot.cartForOrder || []).map((item) => item.productId);
+            Cart.clearItems(userId, orderedProductIds, (clearErr) => {
+              if (clearErr) {
+                console.error('Clear cart error (PayPal pending):', clearErr);
+              }
+              connection.commit((commitErr) => {
+                if (commitErr) return connection.rollback(() => cb(commitErr));
+                cb(null, orderId);
+              });
+            });
+          });
+        });
+      });
+    };
+    if (isPickup) {
+      Order.generatePickupCode((codeErr, code) => {
+        if (codeErr) return cb(codeErr);
+        createWithCode(code);
+      });
+    } else {
+      createWithCode(null);
+    }
+  },
+
+  createPendingStripeOrder: (userId, snapshot, cb) => {
+    const isPickup = (snapshot.shipping.option || '').toLowerCase() === 'pickup';
+    const createWithCode = (pickupCode) => {
+      connection.beginTransaction((txErr) => {
+        if (txErr) return cb(txErr);
+        const payload = {
+          userId,
+          total: snapshot.total,
+          paymentMethod: 'stripe',
+          paymentProvider: 'stripe',
+          deliveryType: snapshot.shipping.option,
+          address: snapshot.shipping.address,
+          pickupCode: pickupCode || null,
+          pickupCodeStatus: pickupCode ? 'active' : null,
+          pickupCodeRedeemedAt: null,
+          status: 'pending_payment'
+        };
+        Order.create(payload, (orderErr, orderId) => {
+          if (orderErr) return connection.rollback(() => cb(orderErr));
+          OrderItem.createMany(orderId, snapshot.cartForOrder, (itemErr) => {
+            if (itemErr) return connection.rollback(() => cb(itemErr));
+            const orderedProductIds = (snapshot.cartForOrder || []).map((item) => item.productId);
+            Cart.clearItems(userId, orderedProductIds, (clearErr) => {
+              if (clearErr) {
+                console.error('Clear cart error (Stripe pending):', clearErr);
+              }
+              connection.commit((commitErr) => {
+                if (commitErr) return connection.rollback(() => cb(commitErr));
+                cb(null, orderId);
+              });
+            });
+          });
+        });
+      });
+    };
+    if (isPickup) {
+      Order.generatePickupCode((codeErr, code) => {
+        if (codeErr) return cb(codeErr);
+        createWithCode(code);
+      });
+    } else {
+      createWithCode(null);
+    }
+  },
+
+  deletePendingWithNets: (orderId, txnRetrievalRef, cb) => {
+    connection.beginTransaction((txErr) => {
+      if (txErr) return cb(txErr);
+      const deleteItems = 'DELETE FROM order_items WHERE orderId = ?';
+      connection.query(deleteItems, [orderId], (itemErr) => {
+        if (itemErr) return connection.rollback(() => cb(itemErr));
+        const deleteOrder = 'DELETE FROM orders WHERE id = ?';
+        connection.query(deleteOrder, [orderId], (orderErr) => {
+          if (orderErr) return connection.rollback(() => cb(orderErr));
+          const deleteTxnSql = txnRetrievalRef
+            ? 'DELETE FROM nets_transactions WHERE txnRetrievalRef = ?'
+            : 'DELETE FROM nets_transactions WHERE orderId = ?';
+          const deleteTxnParams = txnRetrievalRef ? [txnRetrievalRef] : [orderId];
+          connection.query(deleteTxnSql, deleteTxnParams, (txnErr) => {
+            if (txnErr) return connection.rollback(() => cb(txnErr));
+            connection.commit((commitErr) => (commitErr ? cb(commitErr) : cb(null)));
+          });
+        });
+      });
+    });
   }
 };
 

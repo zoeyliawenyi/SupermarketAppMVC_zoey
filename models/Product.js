@@ -52,6 +52,11 @@ const Product = {
         db.query(sql, [stock, id], callback);
     },
 
+    incrementStock: (id, quantity, callback) => {
+        const sql = 'UPDATE products SET stock = stock + ? WHERE id = ?';
+        db.query(sql, [quantity, id], callback);
+    },
+
     decrementStock: (id, quantity, callback) => {
         const sql = 'UPDATE products SET stock = GREATEST(stock - ?, 0) WHERE id = ?';
         db.query(sql, [quantity, id], callback);

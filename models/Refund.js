@@ -1,4 +1,5 @@
 const db = require('../db');
+const Product = require('./Product');
 
 const Refund = {
   getRemainingQty: (orderItemId, cb) => {
@@ -80,9 +81,13 @@ const Refund = {
             `;
             db.query(insertItemsSql, [values], (itemsErr) => {
               if (itemsErr) return db.rollback(() => cb(itemsErr));
-              db.commit((commitErr) => {
-                if (commitErr) return db.rollback(() => cb(commitErr));
-                cb(null, refundId);
+              const updateOrderSql = 'UPDATE orders SET status = ? WHERE id = ?';
+              db.query(updateOrderSql, ['refund_requested', orderId], (updErr) => {
+                if (updErr) return db.rollback(() => cb(updErr));
+                db.commit((commitErr) => {
+                  if (commitErr) return db.rollback(() => cb(commitErr));
+                  cb(null, refundId);
+                });
               });
             });
           };
@@ -144,7 +149,17 @@ const Refund = {
 
   getRefundsByUser: (userId, cb) => {
     const sql = `
-      SELECT r.*, o.total AS orderTotal
+      SELECT r.*, o.total AS orderTotal,
+        (
+          SELECT IFNULL(SUM(ri.qtyRequested * ri.unitPrice), 0)
+          FROM refund_items ri
+          WHERE ri.refundId = r.id
+        ) AS requestedAmount,
+        (
+          SELECT IFNULL(SUM(ri.lineRefundAmount), 0)
+          FROM refund_items ri
+          WHERE ri.refundId = r.id
+        ) AS approvedAmount
       FROM refunds r
       LEFT JOIN orders o ON o.id = r.orderId
       WHERE r.userId = ?
@@ -277,7 +292,7 @@ const Refund = {
   adminDecision: (refundId, adminId, decision, adminNote, inventoryDisposition, qtyApprovedMap, rejectionReason, cb) => {
     db.beginTransaction((err) => {
       if (err) return cb(err);
-      const lockSql = 'SELECT status FROM refunds WHERE id = ? FOR UPDATE';
+      const lockSql = 'SELECT status, orderId FROM refunds WHERE id = ? FOR UPDATE';
       db.query(lockSql, [refundId], (lockErr, rows) => {
         if (lockErr) return db.rollback(() => cb(lockErr));
         const refund = rows && rows[0] ? rows[0] : null;
@@ -310,22 +325,59 @@ const Refund = {
               );
             }
             if (updateErr) return db.rollback(() => cb(updateErr));
-            const itemsSql = 'SELECT id, qtyRequested, unitPrice FROM refund_items WHERE refundId = ?';
+            const itemsSql = 'SELECT id, qtyRequested, unitPrice, productId FROM refund_items WHERE refundId = ?';
             db.query(itemsSql, [refundId], (itemErr, items) => {
               if (itemErr) return db.rollback(() => cb(itemErr));
               const updates = items || [];
-              const updateNext = (index) => {
-                if (index >= updates.length) {
-                  return db.commit((commitErr) => (commitErr ? cb(commitErr) : cb(null)));
-                }
+                const updateNext = (index) => {
+                  if (index >= updates.length) {
+                    const afterItems = (next) => {
+                      if (!refund.orderId) return next();
+                      if (decision === 'rejected') {
+                        db.query('UPDATE orders SET status = ? WHERE id = ?', ['payment_successful', refund.orderId], (oErr) => {
+                          if (oErr) return db.rollback(() => cb(oErr));
+                          return next();
+                        });
+                        return;
+                      }
+                      if (decision === 'approved') {
+                        db.query(
+                          'UPDATE orders SET status = ?, cancelledAt = NOW() WHERE id = ?',
+                          ['cancelled', refund.orderId],
+                          (oErr) => {
+                            if (oErr) return db.rollback(() => cb(oErr));
+                            return next();
+                          }
+                        );
+                        return;
+                      }
+                      return next();
+                    };
+                    return afterItems(() =>
+                      db.commit((commitErr) => (commitErr ? cb(commitErr) : cb(null)))
+                    );
+                  }
                 const item = updates[index];
-                const rawApproved = qtyApprovedMap && qtyApprovedMap[item.id] !== undefined ? qtyApprovedMap[item.id] : 0;
-                const qtyApproved = decision === 'rejected' ? 0 : Math.min(Number(rawApproved || 0), Number(item.qtyRequested || 0));
+                const hasOverride = qtyApprovedMap && Object.prototype.hasOwnProperty.call(qtyApprovedMap, item.id);
+                const rawApproved = hasOverride ? qtyApprovedMap[item.id] : null;
+                const qtyApproved = decision === 'rejected'
+                  ? 0
+                  : (rawApproved === null
+                    ? Number(item.qtyRequested || 0)
+                    : Math.min(Number(rawApproved || 0), Number(item.qtyRequested || 0)));
                 const lineRefundAmount = Number(item.unitPrice || 0) * qtyApproved;
                 const updateItemSql = 'UPDATE refund_items SET qtyApproved = ?, lineRefundAmount = ? WHERE id = ?';
                 db.query(updateItemSql, [qtyApproved, lineRefundAmount, item.id], (uErr) => {
                   if (uErr) return db.rollback(() => cb(uErr));
-                  updateNext(index + 1);
+                  if (decision === 'approved' && qtyApproved > 0 && item.productId) {
+                    const restockSql = 'UPDATE products SET stock = stock + ? WHERE id = ?';
+                    db.query(restockSql, [qtyApproved, item.productId], (sErr) => {
+                      if (sErr) return db.rollback(() => cb(sErr));
+                      updateNext(index + 1);
+                    });
+                  } else {
+                    updateNext(index + 1);
+                  }
                 });
               };
               updateNext(0);
@@ -341,7 +393,7 @@ const Refund = {
   setProcessing: (refundId, adminId, cb) => {
     db.beginTransaction((err) => {
       if (err) return cb(err);
-      const lockSql = 'SELECT status FROM refunds WHERE id = ? FOR UPDATE';
+      const lockSql = 'SELECT status, orderId FROM refunds WHERE id = ? FOR UPDATE';
       db.query(lockSql, [refundId], (lockErr, rows) => {
         if (lockErr) return db.rollback(() => cb(lockErr));
         const refund = rows && rows[0] ? rows[0] : null;
@@ -395,9 +447,7 @@ const Refund = {
         db.query(totalSql, [refundId], (totErr, totalRows) => {
           if (totErr) return db.rollback(() => cb(totErr));
           const approvedTotal = totalRows && totalRows[0] ? Number(totalRows[0].approvedTotal || 0) : 0;
-          const orderTotal = Number(refund.orderTotal || 0);
-          const isFull = orderTotal > 0 && approvedTotal >= orderTotal - 0.01;
-          const orderStatus = isFull ? 'refunded' : 'partially_refunded';
+          const orderStatus = 'cancelled';
           const checkTxnSql = 'SELECT id FROM refund_transactions WHERE refundId = ? LIMIT 1';
           db.query(checkTxnSql, [refundId], (checkErr, txnRows) => {
             if (checkErr) return db.rollback(() => cb(checkErr));
@@ -429,14 +479,20 @@ const Refund = {
                   const fallbackRefundSql = `UPDATE refunds SET status = 'refunded', adminId = ? WHERE id = ?`;
                   return db.query(fallbackRefundSql, [adminId, refundId], (fErr) => {
                     if (fErr) return db.rollback(() => cb(fErr));
-                    db.query('UPDATE orders SET status = ? WHERE id = ?', [orderStatus, refund.orderId], (oErr) => {
+                    const orderUpdateSql = orderStatus === 'cancelled'
+                      ? 'UPDATE orders SET status = ?, cancelledAt = NOW() WHERE id = ?'
+                      : 'UPDATE orders SET status = ? WHERE id = ?';
+                    db.query(orderUpdateSql, [orderStatus, refund.orderId], (oErr) => {
                       if (oErr) return db.rollback(() => cb(oErr));
                       db.commit((commitErr) => (commitErr ? cb(commitErr) : cb(null, { orderStatus })));
                     });
                   });
                 }
                 if (uErr) return db.rollback(() => cb(uErr));
-                db.query('UPDATE orders SET status = ? WHERE id = ?', [orderStatus, refund.orderId], (oErr) => {
+                const orderUpdateSql = orderStatus === 'cancelled'
+                  ? 'UPDATE orders SET status = ?, cancelledAt = NOW() WHERE id = ?'
+                  : 'UPDATE orders SET status = ? WHERE id = ?';
+                db.query(orderUpdateSql, [orderStatus, refund.orderId], (oErr) => {
                   if (oErr) return db.rollback(() => cb(oErr));
                   db.commit((commitErr) => (commitErr ? cb(commitErr) : cb(null, { orderStatus })));
                 });
@@ -451,7 +507,7 @@ const Refund = {
   markRefundProcessFailed: (refundId, adminId, provider, providerRef, amount, rawResponse, failedReason, cb) => {
     db.beginTransaction((err) => {
       if (err) return cb(err);
-      const lockSql = 'SELECT status FROM refunds WHERE id = ? FOR UPDATE';
+      const lockSql = 'SELECT status, orderId FROM refunds WHERE id = ? FOR UPDATE';
       db.query(lockSql, [refundId], (lockErr, rows) => {
         if (lockErr) return db.rollback(() => cb(lockErr));
         const refund = rows && rows[0] ? rows[0] : null;
@@ -629,6 +685,134 @@ const Refund = {
           db.query(updateRefundSql, ['manual_review', refundId], (uErr) => {
             if (uErr) return db.rollback(() => cb(uErr));
             db.commit((commitErr) => (commitErr ? cb(commitErr) : cb(null)));
+          });
+        });
+      });
+    });
+  }
+
+  ,
+  createCancellationRefundForOrder: (order, items, userId, cb) => {
+    if (!order || !order.id) return cb(new Error('Order not found'));
+    const orderId = order.id;
+    const list = items || [];
+    db.beginTransaction((txErr) => {
+      if (txErr) return cb(txErr);
+      const dupSql = 'SELECT id FROM refunds WHERE orderId = ? AND refundType = ? LIMIT 1';
+      db.query(dupSql, [orderId, 'cancellation_refund'], (dupErr, dupRows) => {
+        if (dupErr) return db.rollback(() => cb(dupErr));
+        if (dupRows && dupRows.length) {
+          return db.rollback(() => cb(new Error('A cancellation refund already exists for this order')));
+        }
+
+        const updateOrderSql = `
+          UPDATE orders
+          SET status = ?, cancelledAt = NOW()
+          WHERE id = ? AND userId = ?
+        `;
+        db.query(updateOrderSql, ['cancelled', orderId, userId], (updErr) => {
+          if (updErr) return db.rollback(() => cb(updErr));
+
+          const refundSql = `
+            INSERT INTO refunds
+            (orderId, userId, refundType, reason, note, evidenceImage, preferredMethod, status, adminNote)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `;
+          const refundValues = [
+            orderId,
+            userId,
+            'cancellation_refund',
+            'changed_mind',
+            'User cancelled before shipment',
+            null,
+            'original',
+            'approved',
+            'Auto-approved cancellation refund'
+          ];
+          db.query(refundSql, refundValues, (refErr, refResult) => {
+            if (refErr) return db.rollback(() => cb(refErr));
+            const refundId = refResult.insertId;
+            if (!list.length) {
+              return db.commit((commitErr) => (commitErr ? cb(commitErr) : cb(null, refundId)));
+            }
+
+            const itemValues = list.map((it) => {
+              const qty = Number(it.quantity || 0);
+              const unitPrice = Number(it.price || 0);
+              const lineRefundAmount = unitPrice * qty;
+              return [
+                refundId,
+                it.id,
+                it.productId || null,
+                it.productName || 'Item',
+                qty,
+                qty,
+                unitPrice,
+                lineRefundAmount
+              ];
+            });
+            const itemsSql = `
+              INSERT INTO refund_items
+              (refundId, orderItemId, productId, productName, qtyRequested, qtyApproved, unitPrice, lineRefundAmount)
+              VALUES ?
+            `;
+            db.query(itemsSql, [itemValues], (itemInsErr) => {
+              if (itemInsErr) return db.rollback(() => cb(itemInsErr));
+
+              let restockPending = list.length;
+              if (!restockPending) return proceedRefundTxn();
+              list.forEach((it) => {
+                if (!it.productId) {
+                  if (--restockPending === 0) proceedRefundTxn();
+                  return;
+                }
+                Product.incrementStock(it.productId, Number(it.quantity || 0), (sErr) => {
+                  if (sErr) return db.rollback(() => cb(sErr));
+                  if (--restockPending === 0) proceedRefundTxn();
+                });
+              });
+
+              function proceedRefundTxn() {
+                const paymentLower = (order.paymentMethod || '').toLowerCase();
+                const provider =
+                  paymentLower === 'paypal'
+                    ? 'paypal'
+                    : (paymentLower === 'nets-qr' ? 'nets' : (paymentLower === 'stripe' ? 'stripe' : 'manual'));
+                const providerRefDefault =
+                  provider === 'paypal'
+                    ? `paypal_refund_${refundId}`
+                    : (provider === 'stripe' ? `stripe_refund_${refundId}` : null);
+                const txnInsert = (providerRef) => {
+                  const txnSql = `
+                    INSERT INTO refund_transactions (refundId, provider, providerRef, amount, currency, txnStatus, rawResponse)
+                    VALUES (?, ?, ?, ?, ?, 'completed', ?)
+                  `;
+                  const totalAmt = Number(order.total || 0);
+                  const rawResponse = JSON.stringify({ source: 'auto-cancel', result: 'completed' });
+                  db.query(txnSql, [refundId, provider, providerRef, totalAmt, 'SGD', rawResponse], (txnErr) => {
+                    if (txnErr) return db.rollback(() => cb(txnErr));
+                    db.query('UPDATE refunds SET status = ? WHERE id = ?', ['completed', refundId], (stErr) => {
+                      if (stErr) return db.rollback(() => cb(stErr));
+                      db.commit((commitErr) => (commitErr ? cb(commitErr) : cb(null, refundId)));
+                    });
+                  });
+                };
+
+                if (provider === 'nets') {
+                  db.query(
+                    'SELECT txnRetrievalRef FROM nets_transactions WHERE orderId = ? ORDER BY createdAt DESC LIMIT 1',
+                    [orderId],
+                    (refErr, refRows) => {
+                      if (refErr) return db.rollback(() => cb(refErr));
+                      const ref = refRows && refRows[0] ? refRows[0].txnRetrievalRef : `nets_refund_${refundId}`;
+                      txnInsert(ref);
+                    }
+                  );
+                } else {
+                  txnInsert(providerRefDefault);
+                }
+              }
+            });
           });
         });
       });

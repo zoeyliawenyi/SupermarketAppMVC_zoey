@@ -2,10 +2,11 @@ const Cart = require('../models/Cart');
 const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 const User = require('../models/User');
-const Subscription = require('../models/Subscription');
+const UserSubscription = require('../models/UserSubscription');
 const { getStripe } = require('../services/stripe');
 const { buildCheckoutSnapshot } = require('../services/checkout');
 const { finalizePaidOrder, finalizePaidOrderSystem, getOrderById, updateOrderStatus } = require('../services/orderFinalize');
+const { normalizeStatus, isPaidStatus, isCancelledStatus } = require('../utils/status');
 
 const getCartByUser = (userId) =>
   new Promise((resolve, reject) =>
@@ -20,6 +21,11 @@ const createOrderRecord = (payload) =>
 const createOrderItems = (orderId, items) =>
   new Promise((resolve, reject) =>
     OrderItem.createMany(orderId, items, (err) => (err ? reject(err) : resolve()))
+  );
+
+const clearCartItems = (userId, productIds) =>
+  new Promise((resolve, reject) =>
+    Cart.clearItems(userId, productIds, (err) => (err ? reject(err) : resolve()))
   );
 
 
@@ -38,6 +44,64 @@ const updateOrderPaymentIntent = (orderId, paymentIntentId) =>
   );
 
 const toDate = (unix) => (unix ? new Date(unix * 1000) : null);
+
+const processedStripeEvents = new Set();
+const isDuplicateEvent = (eventId) => {
+  if (!eventId) return false;
+  if (processedStripeEvents.has(eventId)) return true;
+  processedStripeEvents.add(eventId);
+  if (processedStripeEvents.size > 500) {
+    const first = processedStripeEvents.values().next().value;
+    processedStripeEvents.delete(first);
+  }
+  return false;
+};
+
+const isTerminalSuccessStatus = (statusKey = '') =>
+  isCancelledStatus(statusKey) ||
+  isPaidStatus(statusKey) ||
+  ['refund_requested', 'refund_completed'].includes(statusKey);
+
+const mapStripeSubStatus = (status) => {
+  const normalized = (status || '').toLowerCase();
+  if (['active', 'trialing'].includes(normalized)) return 'active';
+  if (['past_due', 'unpaid'].includes(normalized)) return 'payment_failed';
+  return 'inactive';
+};
+
+const normalizeSubscriptionStatus = (status) => (status || 'inactive');
+
+const upsertSubscriptionRecord = (userId, customerId, subscriptionId, status, priceId, periodEnd) =>
+  new Promise((resolve, reject) => {
+    UserSubscription.upsertFromStripe(
+      {
+        userId,
+        stripeCustomerId: customerId,
+        stripeSubscriptionId: subscriptionId,
+        status: normalizeSubscriptionStatus(status),
+        priceId,
+        currentPeriodEnd: periodEnd,
+      },
+      (err) => (err ? reject(err) : resolve())
+    );
+  });
+
+const updateZozoPlusByCustomerOrSubscription = async (customerId, subscriptionId, status, currentPeriodEnd) => {
+  if (subscriptionId) {
+    return new Promise((resolve, reject) => {
+      User.setZozoPlusStatusBySubscriptionId(subscriptionId, status, currentPeriodEnd, (err) =>
+        err ? reject(err) : resolve()
+      );
+    });
+  }
+  if (customerId) {
+    return new Promise((resolve, reject) => {
+      User.setZozoPlusStatusByCustomerId(customerId, status, currentPeriodEnd, (err) =>
+        err ? reject(err) : resolve()
+      );
+    });
+  }
+};
 
 const handleStripeEvent = async (event) => {
   const stripe = getStripe();
@@ -74,13 +138,39 @@ const handleStripeEvent = async (event) => {
 
   if (type === 'payment_intent.payment_failed') {
     const intent = event && event.data ? event.data.object : null;
-    if (intent && intent.id) {
-      await new Promise((resolve, reject) => {
-        Order.updateStatusByStripePaymentIntentId(intent.id, 'payment failed', (err) =>
-          err ? reject(err) : resolve()
-        );
-      });
+    const intentId = intent && intent.id ? intent.id : null;
+    if (!intentId) return;
+
+    let order = await new Promise((resolve, reject) => {
+      Order.findByStripePaymentIntentId(intentId, (err, row) =>
+        err ? reject(err) : resolve(row)
+      );
+    });
+    if (!order) {
+      const metadata = intent && intent.metadata ? intent.metadata : {};
+      const orderId = metadata && metadata.orderId ? parseInt(metadata.orderId, 10) : null;
+      if (orderId) {
+        order = await getOrderById(orderId);
+      }
     }
+    if (!order) {
+      console.log('[stripe] payment_intent.payment_failed no order found', { intentId });
+      return;
+    }
+    const currentStatus = normalizeStatus(order.status || '');
+    const blocked = isTerminalSuccessStatus(currentStatus);
+    console.log('[stripe] payment_intent.payment_failed', {
+      orderId: order.id,
+      currentStatus,
+      attempted: 'payment_failed',
+      blocked
+    });
+    if (blocked) return;
+    await new Promise((resolve, reject) => {
+      Order.updateStatusByStripePaymentIntentId(intentId, 'payment_failed', (err) =>
+        err ? reject(err) : resolve()
+      );
+    });
     return;
   }
 
@@ -88,87 +178,96 @@ const handleStripeEvent = async (event) => {
     const session = event.data.object;
     if (!session || session.mode !== 'subscription') return;
 
-    const userId = parseInt(session.client_reference_id, 10);
+    const userId = parseInt(session.client_reference_id || session.metadata?.userId, 10);
     const stripeCustomerId = session.customer;
     const stripeSubscriptionId = session.subscription;
+    let periodEnd = null;
+    let subStatus = 'active';
+    let priceId = null;
+    if (stripeSubscriptionId) {
+      try {
+        const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+        periodEnd = toDate(sub.current_period_end);
+        subStatus = sub.status || 'active';
+        priceId = sub.items?.data?.[0]?.price?.id || null;
+      } catch (err) {
+        console.error('[stripe] subscription retrieve failed', err?.message || err);
+      }
+    }
 
     if (userId && stripeCustomerId) {
+      await upsertSubscriptionRecord(userId, stripeCustomerId, stripeSubscriptionId, subStatus, priceId, periodEnd);
       await new Promise((resolve, reject) => {
-        User.updateStripeCustomerId(userId, stripeCustomerId, (err) =>
+        User.setZozoPlusActive(userId, stripeCustomerId, stripeSubscriptionId, periodEnd, (err) =>
           err ? reject(err) : resolve()
         );
       });
-    }
-
-    if (stripeSubscriptionId) {
-      const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-      const priceId = subscription.items?.data?.[0]?.price?.id || '';
-      const payload = {
-        userId: userId || null,
-        stripeSubscriptionId,
-        stripePriceId: priceId,
-        stripeCustomerId: stripeCustomerId || subscription.customer,
-        status: subscription.status,
-        currentPeriodStart: toDate(subscription.current_period_start),
-        currentPeriodEnd: toDate(subscription.current_period_end),
-        cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      };
-      await new Promise((resolve, reject) => {
-        Subscription.upsertFromStripe(payload, (err) => (err ? reject(err) : resolve()));
-      });
+      console.log('[stripe] zozoplus active', { userId, stripeCustomerId, stripeSubscriptionId });
     }
     return;
   }
 
   if (
     type === 'customer.subscription.created' ||
-    type === 'customer.subscription.updated' ||
-    type === 'customer.subscription.deleted'
+    type === 'customer.subscription.updated'
   ) {
     const sub = event.data.object;
     if (!sub) return;
-    const stripeCustomerId = sub.customer;
-    const user = await new Promise((resolve, reject) => {
-      User.findByStripeCustomerId(stripeCustomerId, (err, row) =>
-        err ? reject(err) : resolve(row)
-      );
-    });
-    const userId = user ? user.id : null;
-    const priceId = sub.items?.data?.[0]?.price?.id || '';
-    const payload = {
-      userId: userId || null,
-      stripeSubscriptionId: sub.id,
-      stripePriceId: priceId,
-      stripeCustomerId,
-      status: sub.status,
-      currentPeriodStart: toDate(sub.current_period_start),
-      currentPeriodEnd: toDate(sub.current_period_end),
-      cancelAtPeriodEnd: sub.cancel_at_period_end,
-    };
-    await new Promise((resolve, reject) => {
-      Subscription.upsertFromStripe(payload, (err) => (err ? reject(err) : resolve()));
-    });
+    const status = sub.status || 'active';
+    const periodEnd = toDate(sub.current_period_end);
+    const priceId = sub.items?.data?.[0]?.price?.id || null;
+    if (sub.metadata?.userId) {
+      const userId = parseInt(sub.metadata.userId, 10);
+      if (!Number.isNaN(userId)) {
+        await upsertSubscriptionRecord(userId, sub.customer, sub.id, status, priceId, periodEnd);
+      }
+    } else {
+      const subRow = await new Promise((resolve, reject) => {
+        UserSubscription.findByStripeSubscriptionId(sub.id, (err, row) =>
+          err ? reject(err) : resolve(row)
+        );
+      });
+      if (subRow?.userId) {
+        await upsertSubscriptionRecord(subRow.userId, sub.customer, sub.id, status, priceId, periodEnd);
+      }
+    }
+    await updateZozoPlusByCustomerOrSubscription(sub.customer, sub.id, status, periodEnd);
+    console.log('[stripe] zozoplus update', { customer: sub.customer, subscription: sub.id, status });
     return;
   }
 
-  if (type === 'invoice.paid' || type === 'invoice.payment_failed') {
-    const invoice = event.data.object;
-    if (!invoice || !invoice.subscription) return;
-    const status = type === 'invoice.paid' ? 'active' : 'past_due';
-    let sub = null;
-    try {
-      sub = await stripe.subscriptions.retrieve(invoice.subscription);
-    } catch (err) {
-      sub = null;
-    }
-    const periodStart = sub ? toDate(sub.current_period_start) : null;
-    const periodEnd = sub ? toDate(sub.current_period_end) : null;
-    const cancelAtPeriodEnd = sub ? sub.cancel_at_period_end : 0;
-    await new Promise((resolve, reject) => {
-      Subscription.updateStatusByStripeId(invoice.subscription, status, periodStart, periodEnd, cancelAtPeriodEnd, (err) =>
-        err ? reject(err) : resolve()
+  if (type === 'customer.subscription.deleted') {
+    const sub = event.data.object;
+    if (!sub) return;
+    const periodEnd = toDate(sub.current_period_end);
+    const priceId = sub.items?.data?.[0]?.price?.id || null;
+    const subRow = await new Promise((resolve, reject) => {
+      UserSubscription.findByStripeSubscriptionId(sub.id, (err, row) =>
+        err ? reject(err) : resolve(row)
       );
     });
+    if (subRow?.userId) {
+      await upsertSubscriptionRecord(subRow.userId, sub.customer, sub.id, 'canceled', priceId, periodEnd);
+    }
+    await updateZozoPlusByCustomerOrSubscription(sub.customer, sub.id, 'inactive', periodEnd);
+    console.log('[stripe] zozoplus inactive', { customer: sub.customer, subscription: sub.id });
+    return;
+  }
+
+  if (type === 'invoice.paid' || type === 'invoice.payment_failed' || type === 'invoice.payment_succeeded') {
+    const invoice = event.data.object;
+    if (!invoice) return;
+    const status = (type === 'invoice.paid' || type === 'invoice.payment_succeeded') ? 'active' : 'past_due';
+    const periodEnd = toDate(invoice.lines?.data?.[0]?.period?.end);
+    if (invoice.subscription) {
+      await new Promise((resolve, reject) => {
+        UserSubscription.updateStatusBySubscriptionId(invoice.subscription, status, periodEnd, (err) =>
+          err ? reject(err) : resolve()
+        );
+      });
+    }
+    await updateZozoPlusByCustomerOrSubscription(invoice.customer, invoice.subscription, status, periodEnd);
+    console.log('[stripe] zozoplus invoice', { customer: invoice.customer, subscription: invoice.subscription, status });
   }
 };
 
@@ -178,59 +277,68 @@ const StripeController = {
       const stripe = getStripe();
       const userId = req.session.user?.id;
       if (!userId) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-      const requestedOrderId = parseInt(req.body?.orderId, 10);
-      const cart = await getCartByUser(userId);
-      if (!cart.length) {
-        return res.status(400).json({ success: false, message: 'Your cart is empty' });
-      }
-
-      const snapshot = buildCheckoutSnapshot(req, cart, 'stripe');
-      if (!snapshot.cartForOrder.length) {
-        return res.status(400).json({ success: false, message: 'No items selected for checkout' });
-      }
-
-      let order = null;
-      if (!Number.isNaN(requestedOrderId)) {
-        const existing = await getOrderById(requestedOrderId);
-        const statusLower = (existing?.status || '').toLowerCase();
-        const totalMatch = existing && Number(existing.total || 0).toFixed(2) === Number(snapshot.total || 0).toFixed(2);
-        const methodMatch = existing && (existing.paymentMethod || '').toLowerCase() === 'stripe';
-        if (!existing || existing.userId !== userId) {
-          return res.status(403).json({ success: false, message: 'Forbidden' });
-        }
-        if (existing && statusLower === 'pending_payment' && totalMatch && methodMatch) {
-          order = existing;
-        }
-      }
-
-      const amount = Math.round(snapshot.total * 100);
       const user = await new Promise((resolve, reject) => {
         User.findById(userId, (err, row) => (err ? reject(err) : resolve(row)));
       });
-
-      if (!order) {
-        const pickupCode = await generatePickupCodeIfNeeded(snapshot.shipping.option);
-        const orderPayload = {
-          userId,
-          total: snapshot.total,
-          paymentMethod: 'stripe',
-          paymentProvider: 'stripe',
-          stripePaymentIntentId: null,
-          deliveryType: snapshot.shipping.option,
-          address: snapshot.shipping.address || req.session.user?.address,
-          pickupCode,
-          pickupCodeStatus: pickupCode ? 'active' : null,
-          pickupCodeRedeemedAt: null,
-          status: 'pending_payment',
-        };
-        const orderId = await createOrderRecord(orderPayload);
-        await createOrderItems(orderId, snapshot.cartForOrder);
-        order = await getOrderById(orderId);
+      if (user) {
+        req.session.user = { ...req.session.user, ...user };
       }
 
-      const statusLower = (order.status || '').toLowerCase();
-      if (statusLower === 'payment successful') {
+      if (req.session.pendingStripeOrder?.orderId) {
+        const pending = await getOrderById(req.session.pendingStripeOrder.orderId);
+        const pendingStatus = normalizeStatus(pending?.status || '');
+        if (pendingStatus === 'payment_failed') {
+          req.session.pendingStripeOrder = null;
+        }
+      }
+
+      const requestedOrderId = parseInt(req.body?.orderId, 10);
+      let order = null;
+      if (!Number.isNaN(requestedOrderId)) {
+        const existing = await getOrderById(requestedOrderId);
+        const statusLower = normalizeStatus(existing?.status || '');
+        const methodMatch = existing && (existing.paymentMethod || '').toLowerCase() === 'stripe';
+        const isRetryStatus = statusLower === 'pending_payment' || statusLower === 'payment_failed';
+        if (!existing || existing.userId !== userId) {
+          return res.status(403).json({ success: false, message: 'Forbidden' });
+        }
+        if (!methodMatch || !isRetryStatus) {
+          return res.status(400).json({ success: false, message: 'Order not eligible for Stripe retry' });
+        }
+        order = existing;
+      }
+
+      let snapshot = null;
+      if (!order) {
+        const cart = await getCartByUser(userId);
+        if (!cart.length) {
+          return res.status(400).json({ success: false, message: 'Your cart is empty' });
+        }
+
+        snapshot = buildCheckoutSnapshot(req, cart, 'stripe');
+        if (!snapshot.cartForOrder.length) {
+          return res.status(400).json({ success: false, message: 'No items selected for checkout' });
+        }
+      }
+
+    if (!order) {
+      const snapshotForOrder = {
+        ...snapshot,
+        shipping: {
+          ...snapshot.shipping,
+          address: snapshot.shipping.address || req.session.user?.address
+        }
+      };
+      const orderId = await new Promise((resolve, reject) => {
+        Order.createPendingStripeOrder(userId, snapshotForOrder, (err, id) =>
+          err ? reject(err) : resolve(id)
+        );
+      });
+      order = await getOrderById(orderId);
+    }
+
+      const statusLower = normalizeStatus(order.status || '');
+      if (statusLower === 'payment_successful') {
         return res.json({ success: true, orderId: order.id, alreadyPaid: true });
       }
 
@@ -264,9 +372,9 @@ const StripeController = {
       await updateOrderPaymentIntent(order.id, paymentIntent.id);
       req.session.pendingStripeOrder = {
         orderId: order.id,
-        selection: snapshot.selection,
-        shipping: snapshot.shipping,
-        total: snapshot.total,
+        selection: snapshot ? snapshot.selection : null,
+        shipping: snapshot ? snapshot.shipping : null,
+        total: snapshot ? snapshot.total : order.total,
       };
 
       console.log('[stripe] intent created', {
@@ -309,7 +417,7 @@ const StripeController = {
           order = null;
         }
         if (order) {
-          await updateOrderStatus(order.id, 'payment failed');
+          await updateOrderStatus(order.id, 'payment_failed');
         }
         console.error('[stripe] confirm failed', {
           paymentIntentId,
@@ -344,14 +452,14 @@ const StripeController = {
       const expectedAmount = Math.round(Number(order.total || 0) * 100);
       const receivedAmount = intent && typeof intent.amount_received === 'number' ? intent.amount_received : null;
       if (receivedAmount !== null && receivedAmount !== expectedAmount) {
-        await updateOrderStatus(order.id, 'payment failed');
+        await updateOrderStatus(order.id, 'payment_failed');
         return res.status(400).json({ success: false, message: 'Stripe payment amount mismatch.' });
       }
 
       await updateOrderPaymentIntent(order.id, paymentIntentId);
       await finalizePaidOrder(req, order.id);
       req.session.pendingStripeOrder = null;
-      res.json({ success: true, orderId: order.id, redirect: `/orders/${order.id}` });
+      res.json({ success: true, orderId: order.id, redirect: `/orders/success?id=${order.id}` });
     } catch (error) {
       console.error('Stripe confirm payment error:', error?.code || error?.message || error);
       res.status(500).json({ success: false, message: 'Unable to confirm Stripe payment.' });
@@ -394,7 +502,7 @@ const StripeController = {
         stripePaymentIntentId: paymentIntentId,
         deliveryType: 'pickup',
         address: '',
-        status: 'payment successful',
+        status: 'payment_successful',
       });
       res.json({ success: true, orderId, status: intent.status, redirect: `/orders/success?id=${orderId}` });
     } catch (error) {
@@ -416,6 +524,10 @@ const StripeController = {
     } catch (error) {
       console.error('Stripe webhook signature verification failed:', error.message || error);
       return res.status(400).send(`Webhook Error: ${error.message || 'Invalid signature'}`);
+    }
+    if (isDuplicateEvent(event.id)) {
+      console.log('[stripe] duplicate webhook ignored', { eventId: event.id, type: event.type });
+      return res.json({ received: true, duplicate: true });
     }
     try {
       await handleStripeEvent(event);

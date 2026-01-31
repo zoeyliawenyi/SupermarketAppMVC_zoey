@@ -182,25 +182,7 @@ a:hover { color: #ff3d77; }
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-      <div class="nav-links">
-        <a href="/shopping">Home</a>
-        <a href="/favorites">Favorites</a>
-        <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-        <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
-          <div class="dropdown">
-            <a href="/account">My Account</a>
-            <a href="/orders">My Orders</a>
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="hero-card" style="margin-top:20px;">
       <div class="section-head">
@@ -231,6 +213,7 @@ a:hover { color: #ff3d77; }
               <span>Shipping option</span>
             </div>
             <div class="section-body">
+              <% const deliveryCost = freeDeliveryApplied ? 0 : 2; %>
               <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
                 <div id="shipOptionSummary" class="muted hidden" style="font-weight:600;"></div>
                 <button class="edit-btn hidden" id="editShipOption" type="button">✏️</button>
@@ -241,8 +224,8 @@ a:hover { color: #ff3d77; }
                   <span>Store pickup - $0.00</span>
                 </label>
                 <label class="option-item">
-                  <input type="radio" name="shipOption" value="delivery" data-cost="2" <%= shipping.option === 'delivery' ? 'checked' : '' %>>
-                  <span>Doorstep delivery - $2.00</span>
+                  <input type="radio" name="shipOption" value="delivery" data-cost="<%= deliveryCost %>" <%= shipping.option === 'delivery' ? 'checked' : '' %>>
+                  <span>Doorstep delivery - $<%= deliveryCost.toFixed(2) %></span>
                 </label>
               </div>
               <button class="cta secondary light" type="button" id="continueToPayment" disabled>Continue to payment</button>
@@ -307,30 +290,6 @@ a:hover { color: #ff3d77; }
             </div>
           </div>
 
-          <div class="section-card payment-disabled" id="cartSection" style="margin-top:16px;">
-            <div class="section-head">Cart items</div>
-            <div class="section-body cart-box">
-              <div class="payment-placeholder" id="cartPlaceholder"></div>
-              <div id="cartItemsBox" class="hidden">
-                <% cart.forEach(function(item){ %>
-                  <div class="cart-item-row">
-                    <img src="/images/<%= item.image %>" alt="<%= item.productName %>" style="width:54px; height:54px; object-fit:cover; border-radius:10px; border:1px solid var(--border);">
-                    <div style="flex:1;">
-                      <div style="font-weight:700;"><%= item.productName %></div>
-                      <div class="muted">Qty: <%= item.quantity %></div>
-                    </div>
-                    <div style="font-weight:700;">$ <%= (item.price * item.quantity).toFixed(2) %></div>
-                  </div>
-                <% }) %>
-                <div class="btn-group" style="margin-top:14px;">
-                  <button class="cta" type="button" id="placeOrderBtn2">Place order</button>
-                  <a class="cta secondary" href="/cart">Back to cart</a>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div class="card" style="height:100%;">
           <div class="section-card summary-card" style="min-height:100%; display:flex; flex-direction:column;">
             <div class="section-head">Order summary</div>
@@ -352,6 +311,9 @@ a:hover { color: #ff3d77; }
                 <div class="summary-row"><span>Total quantity</span><span><%= totalQuantity %></span></div>
                 <div class="summary-row"><span>Subtotal</span><span>$ <%= subtotal.toFixed(2) %></span></div>
                 <div class="summary-row"><span>Shipping</span><span id="shipCostTxt">$ <%= shippingCost.toFixed(2) %></span></div>
+                <% if (freeDeliveryApplied) { %>
+                  <div class="muted" style="font-size:12px; margin-top:-6px;">ZozoPlus free delivery applied</div>
+                <% } %>
               </div>
               <div class="divider"></div>
               <div class="summary-row" style="font-weight:700; font-size:20px;"><span>Total</span><span id="totalTxt">$ <%= total.toFixed(2) %></span></div>
@@ -404,6 +366,7 @@ a:hover { color: #ff3d77; }
       const stripePublicKey = '<%= (process.env.STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || '').trim() %>';
       let stripe = null;
       let stripeCard = null;
+      let stripeDetailsComplete = false;
       if (stripePublicKey) {
         stripe = Stripe(stripePublicKey);
         const elements = stripe.elements();
@@ -414,6 +377,12 @@ a:hover { color: #ff3d77; }
           }
         });
         stripeCard.mount('#stripe-card-element');
+        stripeCard.on('change', (event) => {
+          stripeDetailsComplete = !!event.complete;
+          if (stripeError) {
+            stripeError.textContent = event.error ? event.error.message : '';
+          }
+        });
       }
 
       function recalcTotal() {
@@ -610,6 +579,10 @@ a:hover { color: #ff3d77; }
           if (stripeError) stripeError.textContent = 'Stripe is not configured yet.';
           return;
         }
+        if (!stripeDetailsComplete) {
+          if (stripeError) stripeError.textContent = 'Please complete your Stripe payment details.';
+          return;
+        }
         if (placeOrderBtn) placeOrderBtn.disabled = true;
         if (stripeError) stripeError.textContent = '';
         try {
@@ -678,13 +651,25 @@ a:hover { color: #ff3d77; }
         stripePayBtn.classList.add('hidden');
       }
 
+      const pendingPaymentOrderId = <%= pendingPaymentOrderId ? Number(pendingPaymentOrderId) : 'null' %>;
+      const pendingPaymentStatus = '<%= (pendingPaymentStatus || "") %>';
+
       document.getElementById('placeOrderBtn').addEventListener('click', () => {
+        if (pendingPaymentOrderId && (pendingPaymentStatus === 'pending_payment' || pendingPaymentStatus === 'awaiting_payment')) {
+          window.location.href = `/orders/fail?id=${pendingPaymentOrderId}`;
+          return;
+        }
         const payMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'nets-qr';
         if (payMethod === 'paypal') {
           startPayPalPayment();
           return;
         }
         if (payMethod === 'stripe') {
+          if (!stripeDetailsComplete) {
+            alert('Please complete your Stripe payment details before placing the order.');
+            if (stripeError) stripeError.textContent = 'Please complete your Stripe payment details.';
+            return;
+          }
           startStripePayment();
           return;
         }
@@ -697,3 +682,5 @@ a:hover { color: #ff3d77; }
   </script>
 </body>
 </html>
+
+

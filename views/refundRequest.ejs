@@ -13,6 +13,15 @@
     .brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); }
     .nav-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
     .nav-links a { padding:8px 14px; border-radius:10px; color:#111827; font-weight:500; text-decoration:none; }
+    .nav-links a:hover { background: rgba(255,92,138,0.12); }
+    .cart-link { position: relative; }
+    .cart-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:#ff5c8a; color:#fff; font-size:12px; margin-left:6px; }
+    .user-menu { position: relative; }
+    .user-menu summary { list-style:none; cursor:pointer; padding:8px 12px; border-radius:10px; }
+    .user-menu[open] summary, .user-menu summary:hover { background: rgba(255,92,138,0.12); }
+    .user-menu .dropdown { position:absolute; right:0; top:110%; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.08); min-width:140px; padding:8px 0; z-index:20; }
+    .user-menu .dropdown a { display:block; padding:8px 12px; color:#111827; text-decoration:none; }
+    .user-menu .dropdown a:hover { background: rgba(255,92,138,0.12); }
     .card { background:#fff; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); margin-top:20px; }
     table { width:100%; border-collapse: collapse; }
     th, td { text-align:left; padding:10px; border-bottom:1px solid #e5e7eb; }
@@ -22,13 +31,7 @@
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand"><span class="dot"></span>ZozoMart</div>
-      <div class="nav-links">
-        <a href="/orders">My Orders</a>
-        <a href="/refunds">Refunds</a>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="card">
       <h2>Refund Request for Order #<%= order.id %></h2>
@@ -36,15 +39,14 @@
         <input type="hidden" name="orderId" value="<%= order.id %>">
         <div style="display:grid; gap:12px; margin-bottom:16px;">
           <div>
-            <label>Refund type</label>
+            <label>Refund mode</label>
             <select name="refundType">
               <option value="partial_refund">Partial refund</option>
               <option value="full_refund">Full refund</option>
-              <option value="price_adjustment">Price adjustment</option>
-              <option value="cancellation_refund">Cancellation refund</option>
-              <option value="delivery_fee_refund">Delivery fee refund</option>
-              <option value="substitution_difference">Substitution difference</option>
             </select>
+            <div class="muted" id="refundModeHint" style="margin-top:6px; font-size:12px;">
+              Partial refund lets you choose quantities per item.
+            </div>
           </div>
           <div>
             <label>Refund method</label>
@@ -56,21 +58,22 @@
               <option value="missing_item">Missing item</option>
               <option value="wrong_item">Wrong item</option>
               <option value="damaged">Damaged</option>
-              <option value="spoiled">Spoiled</option>
-              <option value="expired">Expired</option>
               <option value="late_delivery">Late delivery</option>
-              <option value="pricing_promo_issue">Pricing or promo issue</option>
               <option value="changed_mind">Changed mind</option>
+              <option value="other">Other</option>
             </select>
           </div>
-          <div>
+          <div id="noteWrap">
             <label>Additional note</label>
-            <textarea class="input" name="note" rows="3"></textarea>
+            <textarea class="input" name="note" rows="3" placeholder="Provide details if you selected Other."></textarea>
+            <div class="muted" id="noteRequiredHint" style="margin-top:6px; font-size:12px; display:none;">
+              Note is required when reason is "Other".
+            </div>
           </div>
           <div>
-            <label>Evidence images (optional, up to 3)</label>
-            <input class="input" type="file" name="evidenceImages" accept="image/jpeg,image/png,image/webp" multiple>
-            <div class="muted" style="margin-top:6px; font-size:12px;">Max 2MB each. JPG/PNG/WEBP only.</div>
+            <label>Evidence files (optional, up to 3)</label>
+            <input class="input" type="file" name="evidenceImages" accept="image/jpeg,image/png,image/webp,application/pdf" multiple>
+            <div class="muted" style="margin-top:6px; font-size:12px;">Max 2MB each. JPG/PNG/WEBP/PDF only.</div>
           </div>
         </div>
 
@@ -91,7 +94,7 @@
                 <td><%= it.quantity %></td>
                 <td><%= it.remainingQty %></td>
                 <td style="max-width:120px;">
-                  <input class="input" type="number" min="0" max="<%= it.remainingQty %>" name="qty_<%= it.id %>" value="0">
+                  <input class="input qty-input" type="number" min="0" max="<%= it.remainingQty %>" data-remaining="<%= it.remainingQty %>" name="qty_<%= it.id %>" value="0">
                 </td>
               </tr>
             <% }) %>
@@ -103,5 +106,50 @@
       </form>
     </div>
   </div>
+
+  <script>
+    (function () {
+      const refundType = document.querySelector('select[name="refundType"]');
+      const reason = document.querySelector('select[name="reason"]');
+      const note = document.querySelector('textarea[name="note"]');
+      const noteHint = document.getElementById('noteRequiredHint');
+      const modeHint = document.getElementById('refundModeHint');
+      const qtyInputs = Array.from(document.querySelectorAll('.qty-input'));
+
+      function applyMode() {
+        const isFull = refundType && refundType.value === 'full_refund';
+        if (modeHint) {
+          modeHint.textContent = isFull
+            ? 'Full refund will request all remaining quantities automatically.'
+            : 'Partial refund lets you choose quantities per item.';
+        }
+        qtyInputs.forEach((input) => {
+          const remaining = parseInt(input.dataset.remaining || input.max || '0', 10) || 0;
+          if (isFull) {
+            input.value = remaining;
+            input.readOnly = true;
+            input.style.background = '#f9fafb';
+          } else {
+            input.readOnly = false;
+            input.style.background = '#fff';
+            if (Number(input.value) > remaining) input.value = remaining;
+          }
+        });
+      }
+
+      function applyReason() {
+        const isOther = reason && reason.value === 'other';
+        if (note) note.required = isOther;
+        if (noteHint) noteHint.style.display = isOther ? 'block' : 'none';
+      }
+
+      if (refundType) refundType.addEventListener('change', applyMode);
+      if (reason) reason.addEventListener('change', applyReason);
+
+      applyMode();
+      applyReason();
+    })();
+  </script>
 </body>
 </html>
+

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -183,25 +183,7 @@ a:hover { color: #ff3d77; }
 <body>
   <div class="shell">
   <div class="shell">
-    <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-      <div class="nav-links">
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/inventory">Inventory</a>
-        <a href="/admin/users">Users</a>
-        <a href="/admin/orders">Orders</a>
-        <a href="/admin/reviews">Reviews</a>
-        <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
-          <div class="dropdown">
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
        
 
     <div class="hero-card" style="margin-top:20px;">
@@ -272,6 +254,7 @@ a:hover { color: #ff3d77; }
   </script>
 </body>
 </html>
+
 
 
 

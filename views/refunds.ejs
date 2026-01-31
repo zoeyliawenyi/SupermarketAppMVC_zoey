@@ -13,6 +13,15 @@
     .brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); }
     .nav-links { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
     .nav-links a { padding:8px 14px; border-radius:10px; color:#111827; font-weight:500; text-decoration:none; }
+    .nav-links a:hover { background: rgba(255,92,138,0.12); }
+    .cart-link { position: relative; }
+    .cart-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:#ff5c8a; color:#fff; font-size:12px; margin-left:6px; }
+    .user-menu { position: relative; }
+    .user-menu summary { list-style:none; cursor:pointer; padding:8px 12px; border-radius:10px; }
+    .user-menu[open] summary, .user-menu summary:hover { background: rgba(255,92,138,0.12); }
+    .user-menu .dropdown { position:absolute; right:0; top:110%; background:#fff; border:1px solid #e5e7eb; border-radius:10px; box-shadow:0 10px 30px rgba(0,0,0,0.08); min-width:140px; padding:8px 0; z-index:20; }
+    .user-menu .dropdown a { display:block; padding:8px 12px; color:#111827; text-decoration:none; }
+    .user-menu .dropdown a:hover { background: rgba(255,92,138,0.12); }
     .card { background:#fff; border-radius:16px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.08); margin-top:20px; }
     table { width:100%; border-collapse: collapse; }
     th, td { text-align:left; padding:10px; border-bottom:1px solid #e5e7eb; }
@@ -28,14 +37,7 @@
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand"><span class="dot"></span>ZozoMart</div>
-      <div class="nav-links">
-        <a href="/shopping">Home</a>
-        <a href="/orders">My Orders</a>
-        <a href="/refunds">Refunds</a>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="card">
       <h2>My Refund Requests</h2>
@@ -47,7 +49,8 @@
             <tr>
               <th>Refund ID</th>
               <th>Order</th>
-              <th>Type</th>
+              <th>Mode</th>
+              <th>Reason</th>
               <th>Status</th>
               <th>Created</th>
               <th></th>
@@ -58,7 +61,14 @@
               <tr>
                 <td>#<%= r.id %></td>
                 <td>#<%= r.orderId %></td>
-                <td><%= r.refundType %></td>
+                <% 
+                  const mode = r.refundType ? (r.refundType === 'full_refund' ? 'Full' : 'Partial') : 'Partial';
+                  const reasonKey = (r.refundType === 'cancellation_refund') ? 'cancellation' : (r.reason || '').toLowerCase();
+                  const reasonLabels = { cancellation:'Cancellation', missing_item:'Missing item', wrong_item:'Wrong item', damaged:'Damaged', spoiled:'Spoiled', expired:'Expired', late_delivery:'Late delivery', pricing_promo_issue:'Pricing/promo issue', changed_mind:'Changed mind', other:'Other' };
+                  const reasonLabel = reasonLabels[reasonKey] || (r.reason || 'Other');
+                %>
+                <td><%= mode %></td>
+                <td><%= reasonLabel %></td>
                 <td><span class="pill <%= r.status %>"><%= r.status %></span></td>
                 <td><%= new Date(r.createdAt).toLocaleString() %></td>
                 <td><a href="/refunds/<%= r.id %>">View</a></td>
@@ -71,3 +81,4 @@
   </div>
 </body>
 </html>
+

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -356,25 +356,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
 </head>
 <body>
   <div class="shell">
-            <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-            <div class="nav-links">
-        <a href="/admin/dashboard">📊 Dashboard</a>
-        <a href="/inventory">📦 Inventory</a>
-        <a href="/admin/users">👥 Users</a>
-        <a href="/admin/orders">📑 Orders</a>
-        <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
-          <div class="dropdown">
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-      </div>
-    </nav>
+            <%- include('partials/nav') %>
 
     <div class="hero-card" style="margin-top:20px; max-width: 640px;">
       <div class="section-head">
@@ -412,6 +394,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   </div>
 </body>
 </html>
+
 
 
 

@@ -340,25 +340,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-      <div class="nav-links">
-        <a href="/">Home</a>
-        <a href="/#products">Browse</a>
-        <% if (typeof user !== 'undefined' && user) { %>
-          <a href="/shopping">Shop</a>
-          <a href="/cart">Cart</a>
-          <% if (user.role === 'admin') { %><a href="/inventory">Inventory</a><% } %>
-          <a class="pill" href="/logout">Logout</a>
-        <% } else { %>
-          <a href="/login">Login</a>
-          <a class="pill" href="/register">Create account</a>
-        <% } %>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="hero-card" style="margin-top:20px; max-width: 520px;">
       <h2>Sign in</h2>
@@ -404,4 +386,5 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   </script>
 </body>
 </html>
+
 

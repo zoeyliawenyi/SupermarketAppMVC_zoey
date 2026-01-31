@@ -31,9 +31,9 @@ const refundUpload = multer({
     storage: multer.memoryStorage(),
     limits: { files: 3, fileSize: 2 * 1024 * 1024 },
     fileFilter: (req, file, cb) => {
-        const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+        const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
         if (allowed.includes(file.mimetype)) return cb(null, true);
-        cb(new Error('Only JPG, PNG, or WEBP images are allowed.'));
+        cb(new Error('Only JPG, PNG, WEBP, or PDF files are allowed.'));
     }
 });
 
@@ -154,9 +154,6 @@ app.post('/favorites/:productId/toggle', checkAuthenticated, favoriteController.
 app.get('/reviews', checkAuthenticated, reviewController.list);
 app.post('/reviews', checkAuthenticated, reviewController.create);
 
-// Cart & Checkout (To be updated to DB-based in next phase)
-// For now, keeping them as they are but moving logic if needed
-// (I will implement the DB-based cart in the next phase as planned)
 const CartController = require('./controllers/CartController'); // We'll create this
 app.get('/cart', checkAuthenticated, CartController.showCart);
 app.post('/add-to-cart/:id', checkAuthenticated, CartController.addToCart);
@@ -173,6 +170,7 @@ app.post('/nets-qr/request', checkAuthenticated, netsController.start);
 app.get('/sse/payment-status/:txnRetrievalRef', checkAuthenticated, netsController.sseStatus);
 app.get('/nets-qr/success', checkAuthenticated, netsController.success);
 app.get('/nets-qr/fail', checkAuthenticated, netsController.fail);
+app.get('/nets-qr/cancel', checkAuthenticated, netsController.cancelFromQr);
 app.get('/nets/status/:requestId', checkAuthenticated, netsController.status);
 app.get('/nets/simulate-success/:requestId', checkAuthenticated, netsController.simulateSuccess);
 app.get('/nets/simulate-failure/:requestId', checkAuthenticated, netsController.simulateFailure);
@@ -181,8 +179,9 @@ app.get('/dev/nets/tx/:orderId', checkAuthenticated, netsController.devTxn);
 
 app.post('/api/paypal/create-order', checkAuthenticated, paypalController.createOrder);
 app.post('/api/paypal/capture-order', checkAuthenticated, paypalController.captureOrder);
-app.get('/paypal/return', checkAuthenticated, paypalController.return);
-app.get('/paypal/cancel', checkAuthenticated, paypalController.cancel);
+// PayPal callbacks should not require login (PayPal redirects from external domain)
+app.get('/paypal/return', paypalController.return);
+app.get('/paypal/cancel', paypalController.cancel);
 app.post('/payments/stripe/create-intent', checkAuthenticated, stripeController.createIntent);
 app.post('/payments/stripe/confirm', checkAuthenticated, stripeController.confirmPayment);
 app.post('/dev/stripe/intent/succeed', checkAuthenticated, stripeController.devConfirmIntent);
@@ -190,34 +189,36 @@ app.post('/dev/stripe/intent/succeed', checkAuthenticated, stripeController.devC
 app.get('/orders', checkAuthenticated, orderController.listUserOrders);
 app.get('/orders/success', checkAuthenticated, (req, res) => {
     const id = req.query.id || (req.session.lastOrder && req.session.lastOrder.id);
-    if (!id) return res.render('orderSuccess', { orderId: '' });
+    if (!id) return res.render('orderSuccess', { orderId: '', user: req.session.user });
     const Order = require('./models/Order');
     Order.findByIdWithAgg(id, (err, order) => {
-        if (err || !order) return res.render('orderSuccess', { orderId: id || '' });
-        const statusLower = (order.status || '').trim().toLowerCase();
-        if (statusLower !== 'payment successful') {
-            req.flash('error', 'Payment is not confirmed yet.');
-            return res.redirect(`/orders/${order.id}`);
-        }
-        res.render('orderSuccess', { orderId: id || '' });
+        if (err || !order) return res.render('orderSuccess', { orderId: id || '', user: req.session.user });
+          const statusLower = (order.status || '').trim().toLowerCase().replace(/\s+/g, '_');
+          if (statusLower !== 'payment_successful') {
+              req.flash('error', 'Payment is not confirmed yet.');
+              return res.redirect(`/orders/${order.id}`);
+          }
+        res.render('orderSuccess', { orderId: id || '', user: req.session.user });
     });
 });
 app.get('/orders/fail', checkAuthenticated, (req, res) => {
     const id = req.query.id || (req.session.lastOrder && req.session.lastOrder.id);
-    res.render('orderFail', { orderId: id || '' });
+    res.render('orderFail', { orderId: id || '', user: req.session.user });
 });
 app.get('/orders/:id', checkAuthenticated, orderController.detail);
 app.get('/orders/:id/invoice', checkAuthenticated, orderController.invoice);
 app.post('/orders/:orderId/cancel', checkAuthenticated, orderController.cancelOrder);
+app.post('/orders/:id/retry', checkAuthenticated, orderController.retryPayment);
 
 app.post('/dev/stripe/webhook/simulate', checkAuthenticated, checkAdmin, stripeController.devSimulateWebhook);
 
+app.get('/subscriptions', checkAuthenticated, subscriptionController.status);
 app.get('/subscriptions/plans', checkAuthenticated, subscriptionController.plans);
-app.post('/subscriptions/stripe/checkout-session', checkAuthenticated, subscriptionController.createCheckoutSession);
+app.get('/subscriptions/me', checkAuthenticated, subscriptionController.me);
+app.post('/subscriptions/checkout', checkAuthenticated, subscriptionController.createCheckoutSession);
 app.get('/subscriptions/success', checkAuthenticated, subscriptionController.success);
-app.get('/subscriptions/manage', checkAuthenticated, subscriptionController.manage);
+app.post('/subscriptions/zozoplus/cancel', checkAuthenticated, subscriptionController.cancel);
 app.post('/subscriptions/cancel', checkAuthenticated, subscriptionController.cancel);
-app.post('/subscriptions/usage/record', checkAuthenticated, checkAdmin, subscriptionController.recordUsage);
 
 // Refunds (User)
 app.get('/refunds', checkAuthenticated, refundController.list);

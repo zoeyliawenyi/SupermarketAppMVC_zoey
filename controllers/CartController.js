@@ -3,6 +3,8 @@ const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 const Cart = require('../models/Cart');
 const User = require('../models/User');
+const UserSubscription = require('../models/UserSubscription');
+const { normalizeStatus, isPendingPaymentStatus } = require('../utils/status');
 
 const CartController = {
     showCart: (req, res) => {
@@ -35,7 +37,10 @@ const CartController = {
                     return res.json({ success: true, cartTotal: total, cartCount: count });
                 });
             } else {
-                res.redirect(isBuy ? '/cart' : '/shopping');
+                if (isBuy) {
+                    req.session.checkoutSelection = [productId];
+                }
+                res.redirect(isBuy ? '/checkout' : '/shopping');
             }
         });
     },
@@ -85,7 +90,16 @@ const CartController = {
     },
 
     showCheckout: (req, res) => {
-        Cart.getByUserId(req.session.user.id, (err, cart) => {
+        const pendingOrderId =
+            req.session.pendingStripeOrder?.orderId ||
+            req.session.pendingPaypalOrderId ||
+            req.session.pendingNetsOrderId ||
+            null;
+        let pendingPaymentOrderId = null;
+        let pendingPaymentStatus = null;
+
+        const proceedCheckout = () => {
+            Cart.getByUserId(req.session.user.id, (err, cart) => {
             if (err || !cart || cart.length === 0) {
                 req.flash('error', 'Your cart is empty');
                 return res.redirect('/cart');
@@ -110,20 +124,69 @@ const CartController = {
             if (!shipping.option) shipping.option = 'pickup';
             if (!shipping.payment) shipping.payment = 'nets-qr';
             if (shipping.payment === 'paynow') shipping.payment = 'nets-qr';
-            const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
-            const subtotal = cartForCheckout.reduce((sum, item) => sum + item.price * item.quantity, 0);
-            const totalQuantity = cartForCheckout.reduce((sum, item) => sum + item.quantity, 0);
-            
-            res.render('checkout', {
-                cart: cartForCheckout,
-                user: req.session.user,
-                shipping,
-                cardDraft: req.session.cardDraft || {},
-                shippingCost,
-                subtotal,
-                total: subtotal + shippingCost,
-                totalQuantity
+            const refreshAndRender = (freshUser, subscriptionRow) => {
+                if (freshUser) req.session.user = { ...req.session.user, ...freshUser };
+                let subActive = false;
+                if (subscriptionRow) {
+                    const subStatus = (subscriptionRow.status || '').toLowerCase();
+                    if (['active', 'trialing'].includes(subStatus)) {
+                        req.session.user.zozoPlusStatus = 'active';
+                        subActive = true;
+                    }
+                    if (subscriptionRow.currentPeriodEnd) {
+                        req.session.user.zozoPlusCurrentPeriodEnd = subscriptionRow.currentPeriodEnd;
+                    }
+                }
+                const isZozoPlusActive = subActive || (req.session.user?.zozoPlusStatus || '').toLowerCase() === 'active';
+                const shippingCost = shipping.option === 'delivery' && !isZozoPlusActive ? 2.0 : 0;
+                const subtotal = cartForCheckout.reduce((sum, item) => sum + item.price * item.quantity, 0);
+                const totalQuantity = cartForCheckout.reduce((sum, item) => sum + item.quantity, 0);
+
+                res.render('checkout', {
+                    cart: cartForCheckout,
+                    user: req.session.user,
+                    shipping,
+                    cardDraft: req.session.cardDraft || {},
+                    shippingCost,
+                    subtotal,
+                    total: subtotal + shippingCost,
+                    totalQuantity,
+                    freeDeliveryApplied: isZozoPlusActive && shipping.option === 'delivery',
+                    pendingPaymentOrderId,
+                    pendingPaymentStatus
+                });
+            };
+            User.findById(req.session.user.id, (uErr, freshUser) => {
+                if (uErr) {
+                    console.error('Checkout user refresh error:', uErr);
+                    return refreshAndRender(null, null);
+                }
+                UserSubscription.findByUserId(req.session.user.id, (sErr, subRow) => {
+                    if (sErr) {
+                        console.error('Checkout subscription refresh error:', sErr);
+                        return refreshAndRender(freshUser, null);
+                    }
+                    return refreshAndRender(freshUser, subRow);
+                });
             });
+            });
+        };
+
+        if (!pendingOrderId) return proceedCheckout();
+
+        Order.findByIdWithAgg(pendingOrderId, (findErr, pendingOrder) => {
+            if (findErr || !pendingOrder) return proceedCheckout();
+            const statusKey = normalizeStatus(pendingOrder.status || '');
+            if (isPendingPaymentStatus(statusKey)) {
+                pendingPaymentOrderId = pendingOrder.id;
+                pendingPaymentStatus = statusKey;
+            } else if (statusKey === 'payment_failed') {
+                req.session.pendingStripeOrder = null;
+                req.session.pendingPaypalOrderId = null;
+                req.session.pendingPaypalOrder = null;
+                req.session.pendingNetsOrderId = null;
+            }
+            return proceedCheckout();
         });
     },
 
@@ -186,7 +249,8 @@ const CartController = {
             }
 
             const shipping = req.session.checkoutShipping || { option: 'pickup', payment: 'nets-qr', contact: '', address: '' };
-            const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
+            const isZozoPlusActive = (req.session.user?.zozoPlusStatus || '').toLowerCase() === 'active';
+            const shippingCost = shipping.option === 'delivery' && !isZozoPlusActive ? 2.0 : 0;
             const subtotal = cartForOrder.reduce((sum, item) => sum + item.price * item.quantity, 0);
             const total = subtotal + shippingCost;
             const paymentMethod = req.body.paymentMethod || shipping.payment || 'nets-qr';
@@ -196,9 +260,9 @@ const CartController = {
             req.flash('error', msg);
             return res.redirect('/checkout');
             
-            let status = 'payment successful';
+            let status = 'payment_successful';
             if (paymentMethod === 'card' && Number(req.body.cardYear) <= 2025) {
-                status = 'payment failed';
+                status = 'payment_failed';
             }
 
             const paymentProvider =
@@ -233,7 +297,7 @@ const CartController = {
                     OrderItem.createMany(orderId, cartForOrder, (itemErr) => {
                         if (itemErr) console.error('Order items creation error:', itemErr);
                         
-                        if (status !== 'payment failed') {
+                        if (status !== 'payment_failed') {
                             // Decrement stock
                             let pending = cartForOrder.length;
                             cartForOrder.forEach(it => {
@@ -253,9 +317,9 @@ const CartController = {
                                 
                                 req.session.lastOrder = { id: orderId, items: cartForOrder };
                                 req.session.checkoutSelection = [];
-                                const redirectUrl = status !== 'payment failed' ? `/orders/success?id=${orderId}` : `/orders/fail?id=${orderId}`;
+                                const redirectUrl = status !== 'payment_failed' ? `/orders/success?id=${orderId}` : `/orders/fail?id=${orderId}`;
                                 const responsePayload = {
-                                    success: status !== 'payment failed',
+                                    success: status !== 'payment_failed',
                                     orderId,
                                     status,
                                     redirect: redirectUrl

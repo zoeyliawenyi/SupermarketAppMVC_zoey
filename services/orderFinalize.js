@@ -2,6 +2,7 @@ const Order = require('../models/Order');
 const OrderItem = require('../models/OrderItem');
 const Product = require('../models/Product');
 const Cart = require('../models/Cart');
+const { normalizeStatus } = require('../utils/status');
 
 const getOrderById = (orderId) =>
   new Promise((resolve, reject) =>
@@ -39,15 +40,15 @@ const finalizePaidOrder = async (req, orderId) => {
   const order = await getOrderById(orderId);
   if (!order) throw new Error('Order not found');
 
-  const statusLower = (order.status || '').trim().toLowerCase();
-  if (statusLower === 'payment successful') return { order, alreadyPaid: true };
-  if (statusLower === 'cancelled' || statusLower === 'refunded') {
+  const statusKey = normalizeStatus(order.status || '');
+  if (statusKey === 'payment_successful') return { order, alreadyPaid: true };
+  if (statusKey.startsWith('cancelled') || ['refunded', 'refund_completed', 'refund_requested', 'partially_refunded'].includes(statusKey)) {
     return { order, blocked: true };
   }
 
   const items = await getOrderItems(order.id);
   if (!items.length) {
-    await updateOrderStatus(order.id, 'payment successful');
+    await updateOrderStatus(order.id, 'payment_successful');
     return { order, alreadyPaid: false };
   }
 
@@ -56,7 +57,7 @@ const finalizePaidOrder = async (req, orderId) => {
   if (req?.session?.user?.id && orderedProductIds.length) {
     await clearCartItems(req.session.user.id, orderedProductIds);
   }
-  await updateOrderStatus(order.id, 'payment successful');
+  await updateOrderStatus(order.id, 'payment_successful');
 
   if (req?.session) {
     req.session.lastOrder = { id: order.id, items };
@@ -70,15 +71,15 @@ const finalizePaidOrderSystem = async (orderId) => {
   const order = await getOrderById(orderId);
   if (!order) throw new Error('Order not found');
 
-  const statusLower = (order.status || '').trim().toLowerCase();
-  if (statusLower === 'payment successful') return { order, alreadyPaid: true };
-  if (statusLower === 'cancelled' || statusLower === 'refunded') {
+  const statusKey = normalizeStatus(order.status || '');
+  if (statusKey === 'payment_successful') return { order, alreadyPaid: true };
+  if (statusKey.startsWith('cancelled') || ['refunded', 'refund_completed', 'refund_requested', 'partially_refunded'].includes(statusKey)) {
     return { order, blocked: true };
   }
 
   const items = await getOrderItems(order.id);
   if (!items.length) {
-    await updateOrderStatus(order.id, 'payment successful');
+    await updateOrderStatus(order.id, 'payment_successful');
     return { order, alreadyPaid: false };
   }
 
@@ -87,7 +88,7 @@ const finalizePaidOrderSystem = async (orderId) => {
   if (order.userId && orderedProductIds.length) {
     await clearCartItems(order.userId, orderedProductIds);
   }
-  await updateOrderStatus(order.id, 'payment successful');
+  await updateOrderStatus(order.id, 'payment_successful');
 
   return { order, alreadyPaid: false };
 };

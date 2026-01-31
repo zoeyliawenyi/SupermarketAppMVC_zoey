@@ -50,6 +50,9 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 .status-badge[data-status="cancelled"] { background: rgba(220,38,38,0.15); color:#b91c1c; }
 .status-badge[data-status="refunded"] { background: rgba(124,58,237,0.16); color:#6d28d9; }
 .status-badge[data-status="partially_refunded"] { background: rgba(124,58,237,0.16); color:#6d28d9; }
+.status-badge[data-status="refund_requested"] { background: rgba(59,130,246,0.16); color:#1d4ed8; }
+.status-badge[data-status="refund_rejected"] { background: rgba(239,68,68,0.18); color:#b91c1c; }
+.status-badge[data-status="refund_completed"] { background: rgba(124,58,237,0.16); color:#6d28d9; }
 .status-badge[data-status="requested"] { background: rgba(59,130,246,0.16); color:#1d4ed8; }
 .status-badge[data-status="approved"] { background: rgba(16,185,129,0.18); color:#047857; }
 .status-badge[data-status="rejected"] { background: rgba(239,68,68,0.18); color:#b91c1c; }
@@ -62,6 +65,8 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 .order-actions { display:flex; flex-direction:column; gap:8px; align-items:flex-end; }
 .btn { padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer; font-weight:600; }
 .btn.primary { background: linear-gradient(135deg,#ff91b9,#f04dd0); color:#fff; border:none; }
+.btn.retry { background: linear-gradient(135deg,#2563eb,#4f46e5); color:#fff; border:none; box-shadow: 0 10px 24px rgba(59,130,246,0.35); }
+.btn.retry:hover { filter: brightness(1.02); }
 .filter-bar { display:flex; gap:8px; flex-wrap:wrap; margin-top:16px; }
 .filter-bar a { padding:8px 12px; border-radius:999px; border:1px solid var(--border); background:#fff; color:#111827; font-weight:600; font-size:13px; text-decoration:none; }
 .filter-bar a.active { background: rgba(255,92,138,0.18); border-color: rgba(255,92,138,0.5); color:#9d174d; }
@@ -69,26 +74,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-      <div class="nav-links">
-        <a href="/shopping">Home</a>
-        <a href="/favorites">Favorites</a>
-        <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-        <details class="user-menu">
-          <summary>User: <%= user.username %> v</summary>
-          <div class="dropdown">
-            <a href="/account">My Account</a>
-            <a href="/orders">My Orders</a>
-            <a href="/reviews">My Reviews</a>
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="card" style="margin-top:20px;">
       <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
@@ -105,25 +91,23 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
         <a class="<%= activeFilter === 'all' ? 'active' : '' %>" href="/orders?filter=all">All</a>
         <a class="<%= activeFilter === 'toPay' ? 'active' : '' %>" href="/orders?filter=toPay">To Pay</a>
         <a class="<%= activeFilter === 'processing' ? 'active' : '' %>" href="/orders?filter=processing">Processing</a>
+        <a class="<%= activeFilter === 'shipping' ? 'active' : '' %>" href="/orders?filter=shipping">Shipping/Pickup</a>
         <a class="<%= activeFilter === 'completed' ? 'active' : '' %>" href="/orders?filter=completed">Completed</a>
-        <a class="<%= activeFilter === 'refunds' ? 'active' : '' %>" href="/orders?filter=refunds">Refunds</a>
         <a class="<%= activeFilter === 'cancelled' ? 'active' : '' %>" href="/orders?filter=cancelled">Cancelled</a>
       </div>
 
       <div style="margin-top:12px;">
-        <% 
-          const filteredOrders = (orders || []).filter(o => {
-            const key = (o.status || '').trim().toLowerCase().replace(/\\s+/g,'_');
-            const rKey = (o.refundStatus || '').trim().toLowerCase().replace(/\\s+/g,'_');
-            if (activeFilter === 'toPay') return ['pending_payment','payment_failed'].includes(key);
-            if (activeFilter === 'processing') return ['payment_successful','packing','out_for_delivery','ready_for_pickup','pickup_pending'].includes(key);
-            if (activeFilter === 'completed') return key === 'completed';
-            if (activeFilter === 'refunds') {
-              const orderRefundStates = ['refund_pending','approved','processing','refunded','partially_refunded'];
-              const refundStates = ['requested','approved','processing','refunded','partially_refunded','failed','rejected'];
-              return orderRefundStates.includes(key) || refundStates.includes(rKey);
-            }
-            if (activeFilter === 'cancelled') return key === 'cancelled';
+          <% 
+            const filteredOrders = (orders || []).filter(o => {
+              const rawKey = (o.status || '').trim().toLowerCase().replace(/\\s+/g,'_');
+              const key = rawKey.startsWith('cancelled') ? 'cancelled' : rawKey;
+              const rKey = (o.refundStatus || '').trim().toLowerCase().replace(/\\s+/g,'_');
+            const effectiveKey = ['approved','processing','refunded','completed'].includes(rKey) ? 'cancelled' : key;
+            if (activeFilter === 'toPay') return ['pending_payment','awaiting_payment','payment_failed'].includes(effectiveKey);
+            if (activeFilter === 'processing') return ['payment_successful','packing','refund_requested'].includes(effectiveKey);
+            if (activeFilter === 'shipping') return ['ready_for_pickup','out_for_delivery','pickup_pending'].includes(effectiveKey);
+            if (activeFilter === 'completed') return effectiveKey === 'completed';
+            if (activeFilter === 'cancelled') return ['cancelled','refunded','partially_refunded'].includes(effectiveKey);
             return true;
           });
         %>
@@ -148,28 +132,44 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                const qty = o.cachedQty || (items.reduce((s,i)=>s+(i.quantity||0),0)) || o.totalQty || o.totalQuantity || o.itemsCount || 0;
                 const displayStatus = (o.status || 'placed').trim().toLowerCase();
                 const statusKey = displayStatus.replace(/\s+/g,'_');
+                const refundStatusKey = (o.refundStatus || '').trim().toLowerCase().replace(/\s+/g,'_');
+                const refundCancelsOrder = ['approved','processing','refunded','completed'].includes(refundStatusKey);
+                const displayKey = statusKey === 'awaiting_payment' ? 'payment_failed' : statusKey;
+                const statusKeyBase =
+                  refundCancelsOrder || displayKey.startsWith('cancelled') || displayKey === 'refunded' || displayKey === 'partially_refunded'
+                    ? 'cancelled'
+                    : displayKey;
                 const statusLabels = {
+                  awaiting_payment: 'Payment failed',
                   pending_payment: 'Awaiting payment',
                   payment_failed: 'Payment failed',
-                  payment_successful: 'Paid',
+                  payment_successful: 'Payment successful',
                   packing: 'Packing',
                   out_for_delivery: 'Out for delivery',
                   ready_for_pickup: 'Ready for pickup',
                   pickup_pending: 'Pickup pending',
                   completed: 'Completed',
                   cancelled: 'Cancelled',
-                  refunded: 'Refunded',
-                  partially_refunded: 'Partially refunded'
+                  cancelled_pending_payment: 'Cancelled',
+                  cancelled_payment_failed: 'Cancelled',
+                  refunded: 'Cancelled',
+                  partially_refunded: 'Cancelled',
+                  refund_requested: 'Refund requested',
+                  refund_rejected: 'Refund rejected',
+                  refund_completed: 'Refunded'
                 };
-                const displayStatusLabel = statusLabels[statusKey] || (o.status || 'placed');
-                const refundStatusKey = (o.refundStatus || '').trim().toLowerCase().replace(/\s+/g,'_');
+                const displayStatusLabel = refundCancelsOrder ? 'Cancelled' : (statusLabels[statusKey] || (o.status || 'placed'));
+                const refundTypeRaw = (o.refundType || '').trim().toLowerCase();
+                const refundTypeLabel = refundTypeRaw
+                  ? (refundTypeRaw.includes('partial') ? 'Partial refund' : 'Full refund')
+                  : 'Refund';
                 const refundLabels = {
                   requested: 'Requested',
-                  approved: 'Approved',
+                  approved: 'Refunded',
                   rejected: 'Rejected',
                   processing: 'Processing',
                   refunded: 'Refunded',
-                  completed: 'Completed',
+                  completed: 'Refunded',
                   failed: 'Failed',
                   manual_review: 'Manual review'
                 };
@@ -178,13 +178,14 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                 const isPickup = shipLower.includes('pickup');
                 const pickupActive = (o.pickupCodeStatus || '').toLowerCase() === 'active';
                 const methodLower = (o.paymentMethod || '').toLowerCase();
-                const isPending = displayStatus === 'pending_payment';
-                const isFailed = displayStatus === 'payment failed' || displayStatus === 'payment_failed';
+                const isPending = statusKey === 'pending_payment' || statusKey === 'awaiting_payment';
+                const isFailed = statusKey === 'payment_failed';
                 const canRetry =
                   (isPending || isFailed) &&
                   (methodLower === 'stripe' || methodLower === 'paypal' || methodLower === 'nets-qr' || methodLower === 'nets');
-                const canCancel = displayStatus === 'payment successful' || displayStatus === 'packing';
-                const canRefund = displayStatus === 'out for delivery' || displayStatus === 'completed';
+                const canCancel = isPending || isFailed;
+                const canRefund = statusKey === 'out_for_delivery' || statusKey === 'completed';
+                const canInvoice = ['payment_successful','packing','out_for_delivery','ready_for_pickup','pickup_pending','completed','refund_rejected'].includes(statusKey);
                const itemName = first && first.productName ? first.productName : (items.length > 1 ? 'Items' : (first && first.productId ? ('Item #' + first.productId) : 'Items'));
                const orderTotal = o.total ? Number(o.total) : items.reduce((s,it)=> s + (Number(it.price||0)*Number(it.quantity||0)), 0);
           %>
@@ -221,19 +222,21 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                     <div class="muted"><%= itemName %></div>
                   <% } %>
                   <div class="muted">Total items: <%= qty %></div>
-                  <div class="muted">Status: <span class="status-badge" data-status="<%= statusKey %>"><%= displayStatusLabel %></span></div>
+                  <div class="muted">Status: <span class="status-badge" data-status="<%= statusKeyBase %>"><%= displayStatusLabel %></span></div>
                   <% if (o.refundStatus) { %>
                     <div class="muted">
-                      Refund: <span class="status-badge" data-status="<%= refundStatusKey %>"><%= refundLabel %></span>
+                      Refund: <span class="status-badge" data-status="<%= refundStatusKey %>"><%= refundTypeLabel %>: <%= refundLabel %></span>
                       <a class="btn" style="padding:4px 8px; font-size:12px;" href="/refunds/<%= o.refundId %>">View</a>
                     </div>
                   <% } %>
                   <div class="muted">Shipping: <%= isPickup ? 'Store pickup' : 'Delivery' %></div>
-                  <% if (isPickup && displayStatus === 'ready for pickup' && pickupActive) { %>
+                  <% if (isPickup && statusKey === 'ready_for_pickup' && pickupActive) { %>
                     <div class="muted" style="font-weight:600;">Pickup Code: <%= o.pickupCode %></div>
                   <% } %>
                   <% if (canRetry) { %>
-                    <a class="btn primary" href="/checkout">Retry payment</a>
+                    <form method="POST" action="/orders/<%= o.id %>/retry" style="margin:0;">
+                      <button class="btn retry" type="submit">Retry payment</button>
+                    </form>
                     <div class="muted" style="font-size:12px;">Payment is pending/failed. Retry to confirm this order.</div>
                   <% } %>
                 </div>
@@ -243,14 +246,16 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
                 <div class="muted"><%= o.createdAt ? (o.createdAt.toLocaleString ? o.createdAt.toLocaleString() : o.createdAt) : '' %></div>
                 <div class="order-actions">
                   <a class="btn" href="/orders/<%= o.id %>">View more</a>
-                  <a class="btn primary" href="/orders/<%= o.id %>/invoice" target="_blank">Invoice (PDF)</a>
+                  <% if (canInvoice) { %>
+                    <a class="btn primary" href="/orders/<%= o.id %>/invoice" target="_blank">Invoice (PDF)</a>
+                  <% } %>
                   <% if (canCancel) { %>
                     <form method="POST" action="/orders/<%= o.id %>/cancel" style="margin:0;">
                       <button class="btn danger" type="submit">Cancel Order</button>
                     </form>
                     <div class="muted" style="font-size:12px;">Cancel is only available before payment is confirmed.</div>
                   <% } %>
-                  <% if ((displayStatus || '').toLowerCase() === 'completed') { %>
+                  <% if (statusKey === 'completed') { %>
                     <% if (items && items.length > 1) { %>
                       <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
                         <% items.forEach(function(it){ %>
@@ -271,4 +276,3 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
   </div>
 </body>
 </html>
-

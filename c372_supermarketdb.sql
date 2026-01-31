@@ -12,9 +12,29 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     address TEXT,
     contact VARCHAR(20),
+    zozoPlusStatus VARCHAR(20) NOT NULL DEFAULT 'inactive',
     stripeCustomerId VARCHAR(255) NULL,
+    stripeMembershipSubscriptionId VARCHAR(255) NULL,
+    zozoPlusActivatedAt DATETIME NULL,
+    zozoPlusCurrentPeriodEnd DATETIME NULL,
     role ENUM('user', 'admin', 'deleted') DEFAULT 'user',
     createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- User Subscriptions (ZozoPlus Stripe)
+CREATE TABLE IF NOT EXISTS user_subscriptions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    userId INT NOT NULL,
+    stripeCustomerId VARCHAR(255) NULL,
+    stripeSubscriptionId VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL,
+    priceId VARCHAR(255) NULL,
+    currentPeriodEnd DATETIME NULL,
+    createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_stripe_subscription (stripeSubscriptionId),
+    INDEX idx_user_subscription_user (userId),
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- Products Table
@@ -146,7 +166,8 @@ CREATE TABLE IF NOT EXISTS refunds (
         'expired',
         'late_delivery',
         'pricing_promo_issue',
-        'changed_mind'
+        'changed_mind',
+        'other'
     ) NOT NULL,
     note TEXT,
     evidenceImage VARCHAR(255),

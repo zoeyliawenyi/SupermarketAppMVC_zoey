@@ -47,22 +47,7 @@
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand"><span class="dot"></span>ZozoMart</div>
-      <div class="nav-links">
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/inventory">Inventory</a>
-        <a href="/admin/users">Users</a>
-        <a href="/admin/orders">Orders</a>
-        <a href="/admin/reviews">Reviews</a>
-        <details class="user-menu">
-          <summary>User: <%= user.username %> v</summary>
-          <div class="dropdown">
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="card">
       <h2>Refund Requests</h2>
@@ -98,11 +83,9 @@
           <% if (!refunds || !refunds.length) { %>
             <tr><td colspan="10">No refund requests found.</td></tr>
           <% } else { refunds.forEach(r => { %>
-            <% const orderTotal = Number(r.orderTotal || 0); %>
-            <% const requestedAmount = Number(r.requestedAmount || 0); %>
-            <% const mode = orderTotal > 0 && requestedAmount >= (orderTotal - 0.01) ? 'Full' : 'Partial'; %>
+            <% const mode = r.refundType ? (r.refundType === 'full_refund' ? 'Full' : 'Partial') : 'Partial'; %>
             <% const reasonKey = (r.refundType === 'cancellation_refund') ? 'cancellation' : (r.reason || '').toLowerCase(); %>
-            <% const reasonLabels = { cancellation:'Cancellation', missing_item:'Missing item', wrong_item:'Wrong item', damaged:'Damaged', spoiled:'Spoiled', expired:'Expired', late_delivery:'Late delivery', pricing_promo_issue:'Pricing/promo issue', changed_mind:'Changed mind' }; %>
+            <% const reasonLabels = { cancellation:'Cancellation', missing_item:'Missing item', wrong_item:'Wrong item', damaged:'Damaged', spoiled:'Spoiled', expired:'Expired', late_delivery:'Late delivery', pricing_promo_issue:'Pricing/promo issue', changed_mind:'Changed mind', other:'Other' }; %>
             <% const reasonLabel = reasonLabels[reasonKey] || (r.reason || 'Other'); %>
             <% const statusKey = (r.status || '').toLowerCase(); %>
             <tr>
@@ -129,6 +112,7 @@
   </div>
 </body>
 </html>
+
 
 
 

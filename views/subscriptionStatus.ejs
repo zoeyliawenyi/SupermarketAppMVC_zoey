@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Subscription</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+:root { --text:#1f2430; --muted:#6b7280; --border:#e5e7eb; --shadow:0 12px 30px rgba(17,24,39,0.08); --radius:16px; --accent:#ff5c8a; --accent2:#ff8fb1; }
+body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff); color:var(--text); }
+.shell { max-width: 1080px; margin: 0 auto; padding: 20px; }
+.nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--border); border-radius:var(--radius); padding:12px 16px; box-shadow:var(--shadow); margin-bottom:14px; }
+.brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+.brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,var(--accent),var(--accent2)); box-shadow:0 0 10px rgba(255,92,138,0.6); }
+.nav-links { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.nav-links a { padding:8px 14px; border-radius:10px; color:var(--text); font-weight:500; text-decoration:none; }
+.nav-links a:hover { background: rgba(255,92,138,0.12); }
+.cart-link { position: relative; }
+.cart-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 6px; border-radius:999px; background:var(--accent); color:#fff; font-size:12px; margin-left:6px; }
+.user-menu { position: relative; }
+.user-menu summary { list-style:none; cursor:pointer; padding:8px 12px; border-radius:10px; }
+.user-menu[open] summary, .user-menu summary:hover { background: rgba(255,92,138,0.12); }
+.user-menu .dropdown { position:absolute; right:0; top:110%; background:#fff; border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); min-width:140px; padding:8px 0; z-index:20; }
+.user-menu .dropdown a { display:block; padding:8px 12px; color:var(--text); text-decoration:none; }
+.user-menu .dropdown a:hover { background: rgba(255,92,138,0.12); }
+.card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:18px; margin:14px auto 0; }
+.badge { display:inline-block; padding:4px 10px; border-radius:999px; background:#ffe4ea; color:#b9102c; font-size:12px; font-weight:700; }
+.cta { padding:12px 16px; border:none; border-radius:12px; font-weight:600; cursor:pointer; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); color:#fff; text-decoration:none; display:inline-block; }
+.muted { color:var(--muted); }
+.alert { padding:10px 12px; border-radius:10px; background:#ecfeff; color:#0f4c5c; border:1px solid #a5f3fc; margin-bottom:12px; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <%- include('partials/nav') %>
+
+    <div class="card">
+      <h2 style="margin:0 0 6px;">Your Subscription</h2>
+      <% const isActive = subscription && (subscription.status || '').toLowerCase() === 'active'; %>
+      <% const errorMessage =
+        error === 'invalid_price' ? 'Invalid Stripe Price ID. It must start with price_.' :
+        error === 'missing_env' ? 'Missing Stripe keys in .env.' :
+        error === 'price_missing' ? 'ZozoPlus price not configured.' :
+        error === 'session_failed' ? 'Unable to create Stripe Checkout session. Please try again.' :
+        error === 'cancel_failed' ? 'Unable to unsubscribe right now. Please try again.' :
+        error === 'no_active' ? 'No active membership found to unsubscribe.' :
+        null;
+      %>
+      <% if (success) { %>
+        <div class="alert" id="subscriptionSuccessMsg">Processing subscription...</div>
+      <% } %>
+      <% if (canceled) { %>
+        <div class="alert">Checkout cancelled. You can try again anytime.</div>
+      <% } %>
+      <% if (canceledMembership) { %>
+        <div class="alert">Membership unsubscribed. You can resubscribe anytime.</div>
+      <% } %>
+      <% if (errorMessage) { %>
+        <div class="alert"><%= errorMessage %></div>
+      <% } %>
+
+      <div style="display:grid; gap:8px; margin-bottom:12px;">
+        <div><strong>Plan:</strong> ZozoPlus Membership</div>
+        <div><strong>Status:</strong>
+          <span class="badge"><%= isActive ? 'active' : 'inactive' %></span>
+        </div>
+        <div><strong>Next billing:</strong>
+          <%= isActive && subscription?.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'N/A' %>
+        </div>
+      </div>
+
+      <div class="plan-grid">
+        <% (plans || []).forEach(function(plan){ %>
+          <div class="plan">
+            <% if (isActive) { %>
+              <span class="badge" id="zozoPlusBadge">ZozoPlus Active</span>
+            <% } else { %>
+              <span class="badge" id="zozoPlusBadge">ZozoPlus</span>
+            <% } %>
+            <h3><%= plan.name %></h3>
+            <p class="muted" style="margin:0;"> <%= plan.description %></p>
+            <div style="font-size:20px; font-weight:700;"><%= plan.priceLabel %></div>
+            <ul style="margin:0; padding-left:18px; color:#374151;">
+              <% (plan.features || []).forEach(function(f){ %>
+                <li><%= f %></li>
+              <% }) %>
+            </ul>
+            <% if (isActive) { %>
+              <form method="POST" action="/subscriptions/cancel" style="margin:0;" id="zozoPlusCancelForm">
+                <button class="cta" type="submit" style="background:linear-gradient(135deg,#f87171,#dc2626);">Unsubscribe</button>
+              </form>
+            <% } else { %>
+              <form method="POST" action="/subscriptions/checkout" style="margin:0;" id="zozoPlusSubscribeForm">
+                <button class="cta" id="zozoPlusSubscribeBtn" type="submit" <%= plan.priceId ? '' : 'disabled' %>>
+                  <%= canceledMembership ? 'Resubscribe' : 'Subscribe with Stripe' %>
+                </button>
+              </form>
+            <% } %>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const successMsg = document.getElementById('subscriptionSuccessMsg');
+      if (!successMsg) return;
+      try {
+        const res = await fetch('/subscriptions/me', { credentials: 'same-origin' });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!data || !data.success) return;
+        if ((data.status || '').toLowerCase() === 'active') {
+          successMsg.textContent = 'Subscription successful. ZozoPlus is active.';
+        } else {
+          successMsg.textContent = 'Subscription pending confirmation. Please refresh in a moment.';
+        }
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

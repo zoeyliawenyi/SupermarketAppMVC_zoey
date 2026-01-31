@@ -23,15 +23,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand"><span class="dot"></span>ZozoMart</div>
-      <div class="nav-links">
-        <a href="/shopping">Home</a>
-        <a href="/orders">My Orders</a>
-        <a href="/account">My Account</a>
-        <a href="/subscriptions/plans">Plans</a>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="card">
       <h2 style="margin:0 0 6px;">Manage Subscription</h2>
@@ -76,3 +68,4 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
   </script>
 </body>
 </html>
+

@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ZozoMart | Retry Payment #<%= order.id %></title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap');
+:root { --text:#1f2430; --muted:#6b7280; --border:#e5e7eb; --shadow:0 12px 30px rgba(17,24,39,0.08); --radius:16px; }
+body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(circle at 20% 20%, rgba(255, 92, 138, 0.08), transparent 35%), radial-gradient(circle at 80% 10%, rgba(255, 143, 177, 0.12), transparent 32%), linear-gradient(135deg, #ffffff, #fdf3f7 45%, #ffffff); color:var(--text); }
+.shell { max-width: 1100px; margin:0 auto; padding:24px; }
+.nav { display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--border); border-radius:12px; padding:12px 18px; box-shadow:var(--shadow); }
+.brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+.brand .dot { width:12px; height:12px; border-radius:50%; background: linear-gradient(135deg,#ff5c8a,#ff8fb1); box-shadow: 0 0 10px rgba(255,92,138,0.6); }
+.nav-links { display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+.nav-links a { padding:8px 14px; border-radius:10px; color:var(--text); font-weight:500; text-decoration:none; }
+.cart-link { position:relative; display:inline-flex; align-items:center; gap:6px; }
+.cart-badge { display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:2px 6px; border-radius:999px; background:#16804a; color:#fff; font-size:12px; font-weight:700; }
+.card { background:#fff; border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; }
+.muted { color:var(--muted); }
+.btn { padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer; font-weight:600; text-decoration:none; color:var(--text); }
+.btn.retry { background: linear-gradient(135deg,#2563eb,#4f46e5); color:#fff; border:none; box-shadow: 0 10px 24px rgba(59,130,246,0.35); }
+.btn.retry:hover { filter: brightness(1.02); }
+#stripe-card { padding: 10px; border: 1px solid var(--border); border-radius: 12px; background:#fff; }
+.grid { display:grid; grid-template-columns: 1.5fr 1fr; gap:16px; margin-top:16px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <%- include('partials/nav') %>
+
+    <div style="margin-top:16px;">
+      <p class="muted" style="margin:0; font-weight:700; color:#2563eb;">ORDER #<%= order.id %></p>
+      <h2 style="margin:4px 0;">Retry payment</h2>
+      <p class="muted" style="margin:0;">Complete payment for this order.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h3 style="margin:0 0 8px;">Pay with Stripe</h3>
+        <p class="muted" style="margin-top:0;">Your previous payment did not complete. Please retry with your card.</p>
+        <div id="stripe-card"></div>
+        <div id="stripeError" class="muted" style="margin-top:8px;"></div>
+        <div style="margin-top:12px;">
+          <button class="btn retry" id="retryStripeBtn" type="button">Retry payment</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3 style="margin:0 0 8px;">Order summary</h3>
+        <div style="display:grid; grid-template-columns: 1fr 1fr; row-gap:8px;">
+          <div class="muted">Order total</div><div>$<%= Number(order.total || 0).toFixed(2) %></div>
+          <div class="muted">Payment method</div><div><%= order.paymentMethod || '-' %></div>
+          <div class="muted">Shipping</div><div><%= order.deliveryType || '-' %></div>
+          <div class="muted">Ship to</div><div><%= order.address || '-' %></div>
+        </div>
+        <a class="btn" style="margin-top:12px; display:inline-block;" href="/orders/<%= order.id %>">Back to order</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://js.stripe.com/v3/"></script>
+  <script>
+    (function(){
+      const stripePublicKey = '<%= (process.env.STRIPE_PUBLIC_KEY || process.env.STRIPE_PUBLISHABLE_KEY || '').trim() %>';
+      const errorEl = document.getElementById('stripeError');
+      if (!stripePublicKey) {
+        if (errorEl) errorEl.textContent = 'Stripe is not configured yet.';
+        return;
+      }
+      const stripe = Stripe(stripePublicKey);
+      const elements = stripe.elements();
+      const card = elements.create('card', {
+        style: {
+          base: { fontFamily: 'Poppins, sans-serif', fontSize: '14px', color: '#1f2430' },
+          invalid: { color: '#b9102c' }
+        }
+      });
+      card.mount('#stripe-card');
+
+      document.getElementById('retryStripeBtn').addEventListener('click', async () => {
+        if (errorEl) errorEl.textContent = '';
+        try {
+          const res = await fetch('/payments/stripe/create-intent', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: <%= order.id %> })
+          });
+          const data = await res.json();
+          if (!data?.success || !data.clientSecret) {
+            throw new Error(data?.message || 'Unable to create Stripe intent.');
+          }
+
+          const result = await stripe.confirmCardPayment(data.clientSecret, {
+            payment_method: { card }
+          });
+          if (result.error) {
+            throw new Error(result.error.message || 'Stripe payment failed.');
+          }
+
+          const confirmRes = await fetch('/payments/stripe/confirm', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentIntentId: result.paymentIntent.id, orderId: data.orderId })
+          });
+          const confirmData = await confirmRes.json();
+          if (!confirmData?.success) {
+            throw new Error(confirmData?.message || 'Unable to confirm Stripe payment.');
+          }
+          window.location.href = confirmData.redirect || `/orders/${<%= order.id %>}`;
+        } catch (err) {
+          if (errorEl) errorEl.textContent = err.message || 'Stripe payment failed.';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
+

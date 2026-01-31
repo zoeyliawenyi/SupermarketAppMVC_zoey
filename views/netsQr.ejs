@@ -132,17 +132,7 @@
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand">
-        <span class="badge"></span>
-        ZozoMart NETS
-      </div>
-      <div class="nav-links">
-        <a href="/shopping">Home</a>
-        <a href="/favorites">Favorites</a>
-        <a href="/cart">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="page-grid">
       <section class="card">
@@ -154,11 +144,11 @@
           <p class="timer" id="timer">Time remaining: 5:00</p>
           <div class="info-list">
             <li>Transaction ref: <strong><%= txnRetrievalRef %></strong></li>
-            <li>Amount: <strong>$<%= total.toFixed(2) %></strong></li>
+            <li>Amount: <strong>$<%= Number(total).toFixed(2) %></strong></li>
             <li>Keep this page open until payment completes.</li>
           </div>
           <div class="actions">
-            <a class="btn secondary" href="/cart">Cancel & return</a>
+            <a class="btn secondary" href="<%= cancelUrl || returnUrl || '/checkout' %>">Cancel & return</a>
           </div>
         </div>
       </section>
@@ -216,3 +206,4 @@
   </div>
 </body>
 </html>
+

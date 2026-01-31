@@ -171,6 +171,12 @@ a:hover { color: #ff3d77; }
 }
 
 .cta:hover { transform: translateY(-1px); }
+.cta[disabled],
+.qty-btn[disabled],
+.qty-input[disabled] {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
 
 .stat-grid {
     display: grid;
@@ -298,6 +304,16 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
     gap: 8px;
     flex-wrap: wrap;
 }
+.sub-card {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius) + 6px);
+    padding: 20px;
+    box-shadow: var(--shadow);
+    margin-top: 18px;
+}
+.sub-card h3 { margin: 0 0 6px; }
+  .sub-card .cta { padding: 10px 14px; }
 
 .pill-action {
     padding: 10px 12px;
@@ -364,6 +380,11 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
     background: rgba(34, 197, 94, 0.15);
     color: #16804a;
     border: 1px solid rgba(34, 197, 94, 0.3);
+}
+.pill-badge.soldout {
+    background: rgba(239, 68, 68, 0.15);
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.3);
 }
 
 .card-meta {
@@ -519,6 +540,15 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       <p class="muted">Load up your cart with fresh picks. Select a quantity and add to cart in one tap.</p>
     </div>
 
+      <div class="sub-card">
+        <h3>ZozoPlus membership</h3>
+        <p class="muted" style="margin:0 0 12px;">Get free delivery on all orders with ZozoPlus.</p>
+        <% const isZozoPlusActive = user && (user.zozoPlusStatus || '').toLowerCase() === 'active'; %>
+        <a class="cta" href="/subscriptions">
+          <%= isZozoPlusActive ? 'View subscription' : 'View membership plans' %>
+        </a>
+      </div>
+
     <section class="products">
       <div class="section-head">
         <h2>Shop all products</h2>
@@ -572,7 +602,9 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
       </div>
       <div class="grid">
         <% products.forEach(function(p){ %>
-          <% const maxQty = Math.min(5, p.stock || p.quantity || 5); %>
+          <% const stockValue = (p.stock != null ? p.stock : (p.quantity || 0)); %>
+          <% const isSoldOut = Number(stockValue) <= 0; %>
+          <% const maxQty = isSoldOut ? 0 : Math.min(5, stockValue || 5); %>
           <% const isFav = (favoriteIds || []).includes(p.id); %>
           <form class="card" action="/add-to-cart/<%= p.id %>" method="POST" data-name="<%= (p.productName || '').toLowerCase() %>" data-category="<%= (p.category || '').toLowerCase() %>" data-dietary="<%= (p.dietary || '').toLowerCase() %>" data-price="<%= Number(p.price).toFixed(2) %>">
             <button type="button" class="fav-btn <%= isFav ? 'active' : '' %>" data-product-id="<%= p.id %>" aria-label="Add to favorites">
@@ -591,11 +623,14 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
                 %>
                 <span class="<%= badgeClass %>"><%= p.dietary %></span>
               <% } %>
+              <% if (isSoldOut) { %>
+                <span class="pill-badge small soldout">Sold out</span>
+              <% } %>
             </div>
             <% if (p.category) { %>
               <div class="muted">Category: <strong><%= p.category %></strong></div>
             <% } %>
-            <div class="muted">Available: <strong><%= p.stock != null ? p.stock : (p.quantity || 0) %></strong></div>
+            <div class="muted">Available: <strong><%= stockValue %></strong></div>
             <div class="price">$ <%= Number(p.price).toFixed(2) %></div>
             <div class="muted">
               <% const rating = Math.round(p.avgRating || 0); %>
@@ -606,12 +641,12 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
             </div>
             <div class="card-actions buy-row">
               <div class="qty-control" data-max="<%= maxQty %>">
-                <button type="button" class="qty-btn" data-step="-1">-</button>
-                <input class="qty-input" type="text" name="quantity" value="1" readonly>
-                <button type="button" class="qty-btn" data-step="1">+</button>
+                <button type="button" class="qty-btn" data-step="-1" <%= isSoldOut ? 'disabled' : '' %>>-</button>
+                <input class="qty-input" type="text" name="quantity" value="<%= isSoldOut ? 0 : 1 %>" readonly <%= isSoldOut ? 'disabled' : '' %>>
+                <button type="button" class="qty-btn" data-step="1" <%= isSoldOut ? 'disabled' : '' %>>+</button>
               </div>
-              <button class="cta secondary" type="submit">Add to cart</button>
-              <button class="cta" type="submit" formaction="/add-to-cart/<%= p.id %>?buy=1">Buy</button>
+              <button class="cta secondary" type="submit" <%= isSoldOut ? 'disabled' : '' %>><%= isSoldOut ? 'Sold out' : 'Add to cart' %></button>
+              <button class="cta" type="submit" formaction="/add-to-cart/<%= p.id %>?buy=1" <%= isSoldOut ? 'disabled' : '' %>><%= isSoldOut ? 'Unavailable' : 'Buy' %></button>
             </div>
           </form>
         <% }) %>

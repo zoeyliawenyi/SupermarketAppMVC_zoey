@@ -36,23 +36,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand"><span class="dot"></span>ZozoMart</div>
-      <div class="nav-links">
-        <a href="/shopping">Home</a>
-        <a href="/favorites">Favorites</a>
-        <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-        <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
-          <div class="dropdown">
-            <a href="/account">My Account</a>
-            <a href="/orders">My Orders</a>
-            <a href="/reviews">My Reviews</a>
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="card">
       <h2 style="margin:0 0 8px;">My Account</h2>
@@ -86,21 +70,25 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 
     <div class="card">
       <h2 style="margin:0 0 8px;">Membership</h2>
-      <% if (subscription) { %>
-        <p class="muted" style="margin:0 0 10px;">Your plan is active.</p>
+      <% const zozoStatus = (user.zozoPlusStatus || 'inactive').toLowerCase(); %>
+      <% if (zozoStatus === 'active') { %>
+        <p class="muted" style="margin:0 0 10px;">Your ZozoPlus membership is active.</p>
         <div style="display:grid; gap:6px; max-width:520px;">
-          <div><strong>Status:</strong> <%= subscription.status %></div>
-          <div><strong>Next billing date:</strong> <%= subscription.currentPeriodEnd ? new Date(subscription.currentPeriodEnd).toLocaleDateString() : 'N/A' %></div>
-          <div><strong>Cancel at period end:</strong> <%= subscription.cancelAtPeriodEnd ? 'Yes' : 'No' %></div>
+          <div><strong>Status:</strong> Active</div>
+          <div><strong>Activated at:</strong> <%= user.zozoPlusActivatedAt ? new Date(user.zozoPlusActivatedAt).toLocaleDateString() : 'N/A' %></div>
         </div>
         <div style="margin-top:12px;">
-          <a class="cta" href="/subscriptions/manage" style="text-decoration:none; display:inline-block;">Manage subscription</a>
+        <a class="cta" href="/subscriptions" style="text-decoration:none; display:inline-block;">Manage membership</a>
         </div>
+      <% } else if (zozoStatus === 'payment_failed') { %>
+        <p class="muted" style="margin:0 0 10px;">Your ZozoPlus payment failed. Please update your subscription.</p>
+        <a class="cta" href="/subscriptions" style="text-decoration:none; display:inline-block;">Retry membership</a>
       <% } else { %>
-        <p class="muted" style="margin:0 0 10px;">You do not have an active subscription.</p>
-        <a class="cta" href="/subscriptions/plans" style="text-decoration:none; display:inline-block;">View membership plans</a>
+        <p class="muted" style="margin:0 0 10px;">You do not have an active membership.</p>
+        <a class="cta" href="/subscriptions" style="text-decoration:none; display:inline-block;">View membership plans</a>
       <% } %>
     </div>
   </div>
 </body>
 </html>
+

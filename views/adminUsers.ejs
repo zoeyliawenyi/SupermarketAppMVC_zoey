@@ -357,30 +357,18 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
 <body>
   <div class="shell">
   <div class="shell">
-    <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-      <div class="nav-links">
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/inventory">Inventory</a>
-        <a href="/admin/users">Users</a>
-        <a href="/admin/orders">Orders</a>
-        <a href="/admin/reviews">Reviews</a>
-        <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
-          <div class="dropdown">
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="hero-card" style="margin-top:20px;">
       <div class="section-head">
         <h2>User management</h2>
         <span class="muted">Manage roles and access</span>
+      </div>
+      <div class="stat-grid" style="margin-bottom:16px;">
+        <div class="stat">
+          <label>ZozoPlus members</label>
+          <strong><%= typeof activeMembers !== 'undefined' ? activeMembers : 0 %></strong>
+        </div>
       </div>
       <div class="table-shell">
         <table>
@@ -391,6 +379,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
               <th>Email</th>
               <th>Address</th>
               <th>Contact</th>
+              <th>Membership</th>
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -422,6 +411,17 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
                       <%= u.role === 'deleted' ? 'readonly' : 'required' %>>
                   </td>
                   <td>
+                    <% const memberActive = (u.zozoPlusStatus || '').toLowerCase() === 'active'; %>
+                    <span class="pill-badge" style="background:<%= memberActive ? '#ffe4ea' : '#f3f4f6' %>; color:<%= memberActive ? '#b9102c' : '#6b7280' %>;">
+                      <%= memberActive ? 'ZozoPlus Active' : 'Inactive' %>
+                    </span>
+                    <% if (memberActive && u.zozoPlusCurrentPeriodEnd) { %>
+                      <div class="muted" style="font-size:12px;">
+                        Next bill: <%= new Date(u.zozoPlusCurrentPeriodEnd).toLocaleDateString() %>
+                      </div>
+                    <% } %>
+                  </td>
+                  <td>
                     <span class="pill-badge" style="background:<%= u.role === 'deleted' ? '#fee2e2' : '#e0f2fe' %>; color:<%= u.role === 'deleted' ? '#b91c1c' : '#0f172a' %>;">
                       <%= u.role === 'deleted' ? 'deleted' : 'active' %>
                     </span>
@@ -440,6 +440,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   </div>
 </body>
 </html>
+
 
 
 

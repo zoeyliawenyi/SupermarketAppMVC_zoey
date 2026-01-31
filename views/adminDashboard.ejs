@@ -55,30 +55,11 @@ body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle
 .quick-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:12px;} 
 .quick-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);padding:12px;display:flex;justify-content:space-between;align-items:center;}
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-      <div class="nav-links">
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/inventory">Inventory</a>
-        <a href="/admin/users">Users</a>
-        <a href="/admin/orders">Orders</a>
-        <a href="/admin/reviews">Reviews</a>
-        <details class="user-menu">
-          <summary>👤 <%= user.username %> ▾</summary>
-          <div class="dropdown">
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
 
     <div class="section-head">
@@ -107,6 +88,10 @@ body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle
         <div class="stat-label">Orders</div>
         <div class="stat-value"><%= stats.orders %></div>
       </div>
+      <div class="stat-card">
+        <div class="stat-label">Net sales (paid only)</div>
+        <div class="stat-value">$ <%= Number(stats.salesNet || 0).toFixed(2) %></div>
+      </div>
     </div>
 
     <% if (stats.lowStock && stats.lowStock.length) { %>
@@ -129,19 +114,7 @@ body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle
     </div>
     <% } %>
 
-    <div class="grid-2">
-      <div class="chart-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;">
-          <h3 style="margin:0;">Ratings distribution</h3>
-          <span class="muted" style="font-weight:600;">All reviews</span>
-        </div>
-        <canvas id="ratingChart" height="220"></canvas>
-      </div>
-      <div class="chart-card">
-        <h3 style="margin:0;">Status mix</h3>
-        <canvas id="statusChart" height="220"></canvas>
-      </div>
-    </div>
+    
 
     <div class="table-card">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
@@ -208,44 +181,7 @@ body{margin:0;font-family:'Poppins',sans-serif;background:radial-gradient(circle
     </div>
   </div>
 
-  <script>
-    (function(){
-      const orders = <%- JSON.stringify(stats.recentOrders || []) %>;
-      const ratingSummary = <%- JSON.stringify(stats.ratingSummary || []) %>;
-      const statusColors = {
-        'payment successful': '#c8d9ff',
-        'payment failed': '#f8cde5',
-        'packing': '#ffe4c7',
-        'ready for pickup': '#d6c8ff',
-        'out for delivery': '#c8f0df',
-        'completed': '#bde7f5',
-      };
-
-      // Ratings pie
-      const ratingCtx = document.getElementById('ratingChart');
-      const ratingCounts = [1,2,3,4,5].map(n => {
-        const row = ratingSummary.find(r => Number(r.rating) === n);
-        return row ? Number(row.count) : 0;
-      });
-      new Chart(ratingCtx, {
-        type:'pie',
-        data:{
-          labels:['1 star','2 stars','3 stars','4 stars','5 stars'],
-          datasets:[{
-            data: ratingCounts,
-            backgroundColor:['#eaff00','#742bd4','#3c43c3','#f50aec','#0ff049']
-          }]
-        },
-        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' }, datalabels:{ color:'#1f2937', formatter:(v)=> v>0 ? v : '' } } },
-        plugins:[ChartDataLabels]
-      });
-
-      const statusCtx=document.getElementById('statusChart');
-      const legend=['payment successful','payment failed','packing','ready for pickup','out for delivery','completed'];
-      const counts={}; legend.forEach(l=>counts[l]=0);
-      orders.forEach(o=>{const s=(o.status||'placed').toLowerCase(); if(counts.hasOwnProperty(s)) counts[s]++;});
-      new Chart(statusCtx,{type:'pie',data:{labels:legend,datasets:[{data:legend.map(l=>counts[l]),backgroundColor:legend.map(l=>statusColors[l]||'#e4e7ff')}]} ,options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{position:'bottom'},datalabels:{color:'#1f2937',formatter:(v)=> v>0 ? v : ''}}},plugins:[ChartDataLabels]});
-    })();
-  </script>
+  
 </body>
 </html>
+

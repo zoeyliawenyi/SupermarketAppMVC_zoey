@@ -27,7 +27,10 @@ const dashboard = (req, res) => {
 const listUsers = (req, res) => {
     Admin.getUsers((err, users) => {
         if (err) return renderError(res, 'Error loading users', err);
-        res.render('adminUsers', { user: req.session.user, users });
+        const activeMembers = (users || []).filter(
+            (u) => (u.zozoPlusStatus || '').toLowerCase() === 'active'
+        ).length;
+        res.render('adminUsers', { user: req.session.user, users, activeMembers });
     });
 };
 
@@ -49,9 +52,12 @@ const removeUser = (req, res) => {
 };
 
 const listOrders = (req, res) => {
-    Admin.getOrders((err, orders) => {
-        if (err) return renderError(res, 'Error loading orders', err);
-        res.render('adminOrders', { user: req.session.user, orders });
+    Admin.getOrderSummary((summaryErr, summary) => {
+        if (summaryErr) console.warn('Admin order summary error:', summaryErr);
+        Admin.getOrders((err, orders) => {
+            if (err) return renderError(res, 'Error loading orders', err);
+            res.render('adminOrders', { user: req.session.user, orders, summary: summary || { netSales: 0, netLoss: 0 } });
+        });
     });
 };
 

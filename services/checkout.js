@@ -20,7 +20,8 @@ const buildCheckoutSnapshot = (req, cart, defaultPayment) => {
   if (!shipping.payment) shipping.payment = defaultPayment || 'nets-qr';
   if (shipping.payment === 'paynow') shipping.payment = 'nets-qr';
 
-  const shippingCost = shipping.option === 'delivery' ? 2.0 : 0;
+  const isZozoPlusActive = (req.session.user?.zozoPlusStatus || '').toLowerCase() === 'active';
+  const shippingCost = shipping.option === 'delivery' && !isZozoPlusActive ? 2.0 : 0;
   const subtotal = (cartForOrder || []).reduce(
     (sum, item) => sum + Number(item.price || 0) * Number(item.quantity || 0),
     0

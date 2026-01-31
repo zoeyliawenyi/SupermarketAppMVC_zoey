@@ -59,47 +59,29 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
 .chart-card { background: var(--card); border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding:16px; height:100%; }
 .status-badge { background: var(--pink); color:#34495e; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-      <div class="nav-links">
-        <a href="/admin/dashboard">Dashboard</a>
-        <a href="/inventory">Inventory</a>
-        <a href="/admin/users">Users</a>
-        <a href="/admin/orders">Orders</a>
-        <a href="/admin/reviews">Reviews</a>
-        <details class="user-menu">
-          <summary>User: <%= user.username %> v</summary>
-          <div class="dropdown">
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div style="margin-top:16px;">
       <h2 style="margin:0;">Order management</h2>
       <p class="muted">Update statuses, inspect details, and track revenue.</p>
     </div>
 
-    <div class="grid" style="margin-top:12px;">
-      <div class="chart-card">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-          <h3 style="margin:0;">Sales (all orders)</h3>
-          <span class="muted" style="font-weight:600;">Last 6 months</span>
+    <% const summarySafe = (typeof summary !== 'undefined' && summary) ? summary : { netSales: 0, netLoss: 0 }; %>
+    <div class="grid" style="margin-top:14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));">
+      <div class="card">
+        <div class="muted" style="font-size:13px;">Net sales (paid only)</div>
+        <div style="font-size:24px; font-weight:700; margin-top:6px;">
+          $<%= Number(summarySafe.netSales || 0).toFixed(2) %>
         </div>
-        <canvas id="salesChart" height="180"></canvas>
       </div>
-      <div class="chart-card">
-        <h3 style="margin:0;">Status summary</h3>
-        <canvas id="statusChart" height="180"></canvas>
+      <div class="card">
+        <div class="muted" style="font-size:13px;">Net loss (refunded)</div>
+        <div style="font-size:24px; font-weight:700; margin-top:6px; color:#b91c1c;">
+          $<%= Number(summarySafe.netLoss || 0).toFixed(2) %>
+        </div>
       </div>
     </div>
 
@@ -109,13 +91,14 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
         <div class="filter-row">
           <select class="select" id="statusFilter">
             <option value="">All status</option>
-            <option>payment successful</option>
-            <option>payment failed</option>
-            <option>packing</option>
-            <option>ready for pickup</option>
-            <option>out for delivery</option>
-            <option>completed</option>
-            <option>cancelled</option>
+            <option value="payment_failed">Payment failed</option>
+            <option value="payment_successful">Payment successful</option>
+            <option value="packing">Packing</option>
+            <option value="ready_for_pickup">Ready for pickup</option>
+            <option value="out_for_delivery">Out for delivery</option>
+            <option value="completed">Completed</option>
+            <option value="refund_requested">Refund requested</option>
+            <option value="cancelled">Cancelled</option>
           </select>
           <select class="select" id="sortSelect">
             <option value="date-desc">Newest</option>
@@ -140,20 +123,39 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
         </thead>
         <tbody>
           <% (orders || []).forEach(function(o){ %>
-            <tr data-id="<%= o.id %>" data-status="<%= (o.status || '').toLowerCase() %>" data-total="<%= Number(o.total) %>" data-date="<%= o.createdAt ? new Date(o.createdAt).getTime() : 0 %>">
+            <% const rawStatusKey = (o.status || '').toLowerCase().trim().replace(/\\s+/g,'_'); %>
+            <% const refundStatusKey = (o.latestRefundStatus || '').toLowerCase().trim().replace(/\\s+/g,'_'); %>
+            <% const refundCancelsOrder = ['approved','processing','refunded','completed'].includes(refundStatusKey); %>
+            <% const effectiveStatusKey =
+              refundCancelsOrder
+                ? 'cancelled'
+                : (rawStatusKey === 'refund_rejected'
+                    ? 'payment_successful'
+                    : (rawStatusKey === 'awaiting_payment' ? 'payment_failed' : rawStatusKey));
+            %>
+            <% const badgeStatusKey = (effectiveStatusKey.startsWith('cancelled') || effectiveStatusKey === 'refunded' || effectiveStatusKey === 'partially_refunded') ? 'cancelled' : effectiveStatusKey; %>
+            <tr data-id="<%= o.id %>" data-status="<%= effectiveStatusKey %>" data-total="<%= Number(o.total) %>" data-date="<%= o.createdAt ? new Date(o.createdAt).getTime() : 0 %>">
               <td>#<%= o.id %></td>
               <td><%= o.userId || '-' %> <span class="muted" style="display:block;"><%= o.username || '' %></span></td>
               <td>
-              <% const statusLabel = (o.userRole === 'deleted') ? 'deleted user' : (o.status || 'placed'); %>
-              <% const isCancelled = (statusLabel || '').toLowerCase().trim() === 'cancelled'; %>
-              <span class="status-badge" data-status="<%= statusLabel.toLowerCase() %>"><%= statusLabel %></span>
+                <% const statusKey = effectiveStatusKey; %>
+                <% const labelMap = { payment_successful:'Payment successful', payment_failed:'Payment failed', pending_payment:'Awaiting payment', awaiting_payment:'Payment failed', packing:'Packing', ready_for_pickup:'Ready for pickup', out_for_delivery:'Out for delivery', completed:'Completed', cancelled:'Cancelled', refunded:'Cancelled', partially_refunded:'Cancelled', refund_requested:'Refund requested', refund_rejected:'Payment successful', refund_completed:'Refunded' }; %>
+                <% const displayLabel = (o.userRole === 'deleted') ? 'Deleted user' : (labelMap[statusKey] || (o.status || 'placed')); %>
+                <% const isCancelled = statusKey.startsWith('cancelled'); %>
+                <% const isAwaiting = statusKey === 'pending_payment' || statusKey === 'awaiting_payment'; %>
+                <% const isRefundLocked = ['refund_requested','refund_completed','refunded','partially_refunded'].includes(statusKey); %>
+                <span class="status-badge" data-status="<%= badgeStatusKey %>"><%= displayLabel %></span>
             </td>
               <td>
                 <% if (o.latestRefundId) { %>
                   <% const rKey = (o.latestRefundStatus || '').toLowerCase().trim().replace(/\s+/g,'_'); %>
+                  <% const rTypeRaw = (o.latestRefundType || '').toLowerCase().trim(); %>
+                  <% const rTypeLabel = rTypeRaw ? (rTypeRaw.includes('partial') ? 'Partial refund' : 'Full refund') : 'Refund'; %>
                   <% const viewStatuses = ['completed','refunded','rejected']; %>
                   <% const actionLabel = viewStatuses.includes(rKey) ? 'View refund' : 'Review refund'; %>
-                  <span class="refund-badge" data-status="<%= rKey %>">Refund: <%= o.latestRefundStatus %></span>
+                  <% const refundLabelMap = { requested:'Requested', approved:'Refunded', processing:'Processing', refunded:'Refunded', completed:'Refunded', rejected:'Rejected', failed:'Failed', manual_review:'Manual review' }; %>
+                  <% const refundStatusLabel = refundLabelMap[rKey] || o.latestRefundStatus; %>
+                  <span class="refund-badge" data-status="<%= rKey %>"><%= rTypeLabel %>: <%= refundStatusLabel %></span>
                   <a class="btn" style="padding:4px 8px; font-size:12px;" href="/admin/refunds/<%= o.latestRefundId %>"><%= actionLabel %></a>
                 <% } else { %>
                   <span class="muted">-</span>
@@ -164,18 +166,27 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
               <td class="actions">
                 <a class="btn" href="/admin/orders/<%= o.id %>">Details</a>
                 <% const shipType = (o.deliveryType || '').toLowerCase(); const isPickup = shipType.includes('pickup'); const isDoorstep = shipType.includes('doorstep') || shipType.includes('delivery'); %>
-                <% if (!isCancelled) { %>
+                <% const isPaymentFailed = statusKey === 'payment_failed'; %>
+                <% const isLocked = isCancelled || isPaymentFailed || isAwaiting || isRefundLocked; %>
+                <% if (!isLocked) { %>
                   <select class="select status-select">
-                    <option <%= o.status==='payment successful' ? 'selected' : '' %>>payment successful</option>
-                    <option <%= o.status==='payment failed' ? 'selected' : '' %>>payment failed</option>
-                    <option <%= o.status==='packing' ? 'selected' : '' %>>packing</option>
-                    <% if (!isDoorstep) { %><option <%= o.status==='ready for pickup' ? 'selected' : '' %>>ready for pickup</option><% } %>
-                    <% if (!isPickup) { %><option <%= o.status==='out for delivery' ? 'selected' : '' %>>out for delivery</option><% } %>
-                    <option <%= o.status==='completed' ? 'selected' : '' %>>completed</option>
+                    <option value="payment_successful" <%= statusKey==='payment_successful' ? 'selected' : '' %>>Payment successful</option>
+                    <option value="packing" <%= statusKey==='packing' ? 'selected' : '' %>>Packing</option>
+                    <% if (!isDoorstep) { %><option value="ready_for_pickup" <%= statusKey==='ready_for_pickup' ? 'selected' : '' %>>Ready for pickup</option><% } %>
+                    <% if (!isPickup) { %><option value="out_for_delivery" <%= statusKey==='out_for_delivery' ? 'selected' : '' %>>Out for delivery</option><% } %>
+                    <option value="completed" <%= statusKey==='completed' ? 'selected' : '' %>>Completed</option>
                   </select>
                   <button class="btn primary update-btn" type="button">Update</button>
                 <% } else { %>
-                  <span class="muted" style="font-size:12px;">Cancelled (locked)</span>
+                  <span class="muted" style="font-size:12px;">
+                    <%= isCancelled
+                      ? 'Cancelled (locked)'
+                      : (isPaymentFailed
+                        ? 'Payment failed (locked)'
+                        : (isAwaiting
+                          ? 'Awaiting payment (locked)'
+                          : 'Refunded (locked)')) %>
+                  </span>
                 <% } %>
               </td>
             </tr>
@@ -189,68 +200,21 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
     (function(){
       const orders = <%- JSON.stringify(orders || []) %>;
       const statusColors = {
-        'payment successful': '#c8d9ff',
-        'payment failed': '#f8cde5',
-        'packing': '#ffe4c7',
-        'ready for pickup': '#d6c8ff',
-        'out for delivery': '#c8f0df',
-        'completed': '#bde7f5',
-        'cancelled': '#e5e7eb'
+        payment_successful: 'rgba(22,163,74,0.18)',
+        pending_payment: 'rgba(59,130,246,0.16)',
+        awaiting_payment: 'rgba(239,68,68,0.18)',
+        payment_failed: 'rgba(239,68,68,0.18)',
+        packing: 'rgba(249,115,22,0.22)',
+        ready_for_pickup: 'rgba(250,204,21,0.22)',
+        out_for_delivery: 'rgba(250,204,21,0.22)',
+        completed: 'rgba(236,72,153,0.18)',
+        cancelled: 'rgba(220,38,38,0.15)',
+        refunded: 'rgba(124,58,237,0.16)',
+        partially_refunded: 'rgba(124,58,237,0.16)',
+        refund_requested: 'rgba(59,130,246,0.16)',
+        refund_completed: 'rgba(124,58,237,0.16)',
+        refund_rejected: 'rgba(239,68,68,0.18)'
       };
-
-      // Sales chart (last 6 months based on most recent order)
-      const salesCtx = document.getElementById('salesChart');
-      const monthKey = (o) => {
-        const d = new Date(o.createdAt);
-        if (isNaN(d)) return null;
-        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-      };
-      const orderMonths = orders.map(monthKey).filter(Boolean);
-      let latest = new Date();
-      orderMonths.forEach(key => {
-        const [y,m] = key.split('-').map(Number);
-        const d = new Date(y, m-1, 1);
-        if (!isNaN(d) && d > latest) latest = d;
-      });
-      const months = [];
-      for (let i = 5; i >=0; i--) {
-        const d = new Date(latest.getFullYear(), latest.getMonth()-i, 1);
-        const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
-        months.push({ key, label: key });
-      }
-      const salesByMonth = months.map(m => {
-        const sum = orders.reduce((s,o)=>{
-          const mk = monthKey(o);
-          const st = (o.status || '').toLowerCase().trim();
-          if (mk === m.key && st !== 'cancelled') return s + Number(o.total||0);
-          return s;
-        },0);
-        return sum;
-      });
-      new Chart(salesCtx, {
-        type: 'bar',
-        data: { labels: months.map(m=>m.label), datasets:[{ label:'Sales', data: salesByMonth, backgroundColor:'rgba(200, 217, 255, 0.6)', borderColor:'rgba(200,217,255,0.9)' }]},
-        options: { plugins:{ legend:{ display:false }, tooltip:{ callbacks:{ label:(ctx)=>'$'+ctx.parsed.y.toFixed(2) } }, datalabels:{ color:'#1f2937', anchor:'end', align:'end', formatter:(v)=>'$'+Number(v).toFixed(2) }}, scales:{ y:{ beginAtZero:true } } },
-        plugins:[ChartDataLabels]
-      });
-
-      // Status chart
-      const statusCtx = document.getElementById('statusChart');
-      const legendStatuses = ['payment successful','payment failed','packing','ready for pickup','out for delivery','completed','cancelled'];
-      const counts = {};
-      legendStatuses.forEach(s => counts[s] = 0);
-      orders.forEach(o => {
-        const s = (o.status || 'placed').toLowerCase().trim();
-        if (counts.hasOwnProperty(s)) counts[s] += 1;
-      });
-      const statusLabels = legendStatuses;
-      const statusData = statusLabels.map(k => counts[k] || 0);
-      new Chart(statusCtx, {
-        type:'pie',
-        data:{ labels: statusLabels, datasets:[{ data: statusData, backgroundColor: statusLabels.map(l => statusColors[l] || '#e4e7ff') }]},
-        options:{ plugins:{ legend:{ position:'bottom' }, datalabels:{ color:'#1f2937', formatter:(v)=> v>0 ? v : '' } } },
-        plugins:[ChartDataLabels]
-      });
 
       // table interactions
       const rows = Array.from(document.querySelectorAll('#ordersTable tbody tr'));
@@ -271,7 +235,11 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
         const status = (statusFilter.value||'').toLowerCase();
         let filtered = rows.filter(r => {
           const st = r.dataset.status;
-          const matchesS = status ? st === status : true;
+          const matchesS = status
+            ? (status === 'cancelled'
+              ? (st === 'cancelled' || st === 'refunded' || st === 'partially_refunded')
+              : st === status)
+            : true;
           return matchesS;
         });
         const sorter = {
@@ -305,7 +273,23 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
           });
           if (res.ok) {
             row.dataset.status = newStatus.toLowerCase();
-            row.querySelector('.status-badge').textContent = newStatus;
+            const labelMap = {
+              payment_successful: 'Payment successful',
+              payment_failed: 'Payment failed',
+              pending_payment: 'Awaiting payment',
+              awaiting_payment: 'Payment failed',
+              packing: 'Packing',
+              ready_for_pickup: 'Ready for pickup',
+              out_for_delivery: 'Out for delivery',
+              completed: 'Completed',
+              cancelled: 'Cancelled',
+              refunded: 'Refunded',
+              partially_refunded: 'Partially refunded',
+              refund_requested: 'Refund requested',
+              refund_rejected: 'Payment successful',
+              refund_completed: 'Refunded'
+            };
+            row.querySelector('.status-badge').textContent = labelMap[newStatus] || newStatus;
             applyFilters();
             alert('Status updated');
           } else {
@@ -319,6 +303,7 @@ body { margin:0; font-family:'Poppins',sans-serif; background: radial-gradient(c
   </script>
 </body>
 </html>
+
 
 
 

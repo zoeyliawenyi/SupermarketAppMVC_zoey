@@ -33,6 +33,8 @@ th { color:var(--muted); font-weight:700; }
 .muted { color:var(--muted); }
 .btn { padding:10px 14px; border-radius:12px; border:1px solid var(--border); background:#fff; cursor:pointer; font-weight:600; text-decoration:none; color:var(--text); }
 .btn.primary { background: linear-gradient(135deg,#ff91b9,#f04dd0); color:#fff; border:none; }
+.btn.retry { background: linear-gradient(135deg,#2563eb,#4f46e5); color:#fff; border:none; box-shadow: 0 10px 24px rgba(59,130,246,0.35); }
+.btn.retry:hover { filter: brightness(1.02); }
 .btn.danger { background: linear-gradient(135deg,#f87171,#dc2626); color:#fff; border:none; box-shadow: 0 10px 24px rgba(220,38,38,0.25); }
 .status-badge { padding:6px 10px; border-radius:999px; font-weight:700; font-size:12px; background:#e5e7eb; color:#1f2937; display:inline-block; }
 .status-badge[data-status="requested"] { background: rgba(59,130,246,0.16); color:#1d4ed8; }
@@ -46,34 +48,7 @@ th { color:var(--muted); font-weight:700; }
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand"><span class="dot"></span>ZozoMart</div>
-      <div class="nav-links">
-        <% if (isAdminView) { %>
-          <a href="/admin/dashboard">📊 Dashboard</a>
-          <a href="/inventory">📦 Inventory</a>
-          <a href="/admin/users">👥 Users</a>
-          <a href="/admin/orders">📑 Orders</a>
-        <% } else { %>
-          <a href="/shopping">Home</a>
-          <a href="/favorites">Favourites</a>
-          <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-        <% } %>
-        <details class="user-menu">
-          <summary>User: <%= user.username %> v</summary>
-          <div class="dropdown">
-            <% if (isAdminView) { %>
-              <a href="/admin/orders">Orders</a>
-            <% } else { %>
-              <a href="/account">My Account</a>
-              <a href="/orders">My Orders</a>
-              <a href="/shopping">Shop</a>
-            <% } %>
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
       <div>
@@ -90,28 +65,65 @@ th { color:var(--muted); font-weight:700; }
         <% 
           const ship = (order.deliveryType || '').toLowerCase();
           const current = (order.status || '').trim().toLowerCase();
-          const steps = current === 'cancelled'
-            ? [
-                { num:1, label:'Payment Successful', key:'payment successful' },
+          const currentKey = current.replace(/\s+/g, '_');
+          const normalizedKey = currentKey === 'awaiting_payment' ? 'payment_failed' : currentKey;
+          const refundStatus = refund ? (refund.status || '').trim().toLowerCase() : '';
+          var hasRefund = !!refund;
+          const isCancelled = currentKey.startsWith('cancelled');
+          const cancelIsFailed = currentKey.includes('failed');
+          const cancelIsPending = currentKey.includes('pending');
+          let steps = [];
+          let currentIdx = -1;
+
+          if (hasRefund) {
+            const step2Label = (refundStatus === 'approved' || refundStatus === 'processing') ? 'Refund approved' : 'Refund requested';
+            const step3Label = (refundStatus === 'rejected') ? 'Refund rejected' : 'Refund completed';
+            steps = [
+              { num:1, label:'Payment Successful', key:'payment_successful' },
+              { num:2, label:step2Label, key:'refund_step2' },
+              { num:3, label:step3Label, key: refundStatus === 'rejected' ? 'refund_rejected' : 'refund_completed' },
+            ];
+            if (refundStatus === 'requested') currentIdx = 1;
+            else if (refundStatus === 'approved' || refundStatus === 'processing') currentIdx = 1;
+            else if (refundStatus === 'completed' || refundStatus === 'refunded' || refundStatus === 'rejected') currentIdx = 2;
+            else currentIdx = 1;
+          } else if (isCancelled) {
+            if (cancelIsFailed) {
+              steps = [
+                { num:1, label:'Payment Failed', key:'payment_failed' },
                 { num:2, label:'Order Cancelled', key:'cancelled' },
-                { num:3, label:'Refund Completed', key:'refund completed' },
-              ]
-            : [
-                { num:1, label:(current==='payment failed' ? 'Payment Failed' : (current==='pending_payment' ? 'Awaiting payment' : 'Payment Successful')), key:(current==='payment failed' ? 'payment failed' : (current==='pending_payment' ? 'pending_payment' : 'payment successful')) },
-                { num:2, label:'Packing', key:'packing' },
-                { num:3, label: ship.includes('pickup') ? 'Ready for pickup' : 'Out For Delivery', key: ship.includes('pickup') ? 'ready for pickup' : 'out for delivery' },
-                { num:4, label:'Completed', key:'completed' },
               ];
-          const currentIdx = current === 'cancelled' ? steps.length - 1 : steps.findIndex(s => s.key === current);
+            } else if (cancelIsPending) {
+              steps = [
+                { num:1, label:'Awaiting payment', key:'pending_payment' },
+                { num:2, label:'Order Cancelled', key:'cancelled' },
+              ];
+            } else {
+              steps = [
+                { num:1, label:'Awaiting payment', key:'pending_payment' },
+                { num:2, label:'Order Cancelled', key:'cancelled' },
+              ];
+            }
+            currentIdx = steps.length - 1;
+          } else {
+            steps = [
+              { num:1, label:(normalizedKey==='payment_failed' ? 'Payment Failed' : (normalizedKey==='pending_payment' ? 'Awaiting payment' : 'Payment Successful')), key:(normalizedKey==='payment_failed' ? 'payment_failed' : (normalizedKey==='pending_payment' ? 'pending_payment' : 'payment_successful')) },
+              { num:2, label:'Packing', key:'packing' },
+              { num:3, label: ship.includes('pickup') ? 'Ready for pickup' : 'Out For Delivery', key: ship.includes('pickup') ? 'ready_for_pickup' : 'out_for_delivery' },
+              { num:4, label:'Completed', key:'completed' },
+            ];
+            currentIdx = steps.findIndex(s => s.key === normalizedKey);
+          }
         %>
         <% steps.forEach(function(step, idx){ 
              const isDone = currentIdx >= idx && currentIdx !== -1;
-             const isCancelled = step.key === 'cancelled';
-             const isRefund = step.key === 'refund completed';
-             const badgeColor = step.key === 'payment failed'
+             const isCancelledStep = step.key === 'cancelled';
+             const isRefundCompleted = step.key === 'refund_completed';
+             const isRefundRejected = step.key === 'refund_rejected';
+             const badgeColor = step.key === 'payment_failed'
                ? '#e03131'
-               : (isCancelled ? '#dc2626' : (isRefund ? '#ec4899' : (isDone ? '#16a34a' : '#e5e7eb')));
-             const badgeTextColor = (step.key === 'payment failed' || isCancelled || isRefund) ? '#fff' : (isDone ? '#fff' : '#1f2937');
+               : (isCancelledStep || isRefundRejected ? '#dc2626' : (isRefundCompleted ? '#ec4899' : (isDone ? '#16a34a' : '#e5e7eb')));
+             const badgeTextColor = (step.key === 'payment_failed' || isCancelledStep || isRefundCompleted || isRefundRejected) ? '#fff' : (isDone ? '#fff' : '#1f2937');
              const mutedText = isDone ? 'Completed' : 'Pending';
         %>
           <div class="status-chip">
@@ -135,7 +147,7 @@ th { color:var(--muted); font-weight:700; }
               <th>Qty</th>
               <th>Price</th>
               <th>Subtotal</th>
-              <% if ((order.status || '').toLowerCase() === 'completed') { %><th>Review</th><% } %>
+              <% if ((order.status || '').toLowerCase().replace(/\s+/g,'_') === 'completed') { %><th>Review</th><% } %>
             </tr>
           </thead>
           <tbody>
@@ -152,7 +164,7 @@ th { color:var(--muted); font-weight:700; }
                 <td><%= it.quantity %></td>
                 <td>$<%= Number(it.price).toFixed(2) %></td>
                 <td>$<%= (Number(it.price)*Number(it.quantity)).toFixed(2) %></td>
-                <% if ((order.status || '').toLowerCase() === 'completed') { %>
+                <% if ((order.status || '').toLowerCase().replace(/\s+/g,'_') === 'completed') { %>
                   <td><a class="btn" href="/reviews?productId=<%= it.productId %>">Add review</a></td>
                 <% } %>
               </tr>
@@ -178,26 +190,50 @@ th { color:var(--muted); font-weight:700; }
         <h3 style="margin:0 0 10px;">Summary</h3>
         <div style="display:grid; grid-template-columns: 1fr 1fr; row-gap:8px;">
           <%
-            const statusLabel = (order.status || '').toLowerCase() === 'pending_payment' ? 'Awaiting payment' : (order.status || 'placed');
+            const statusKeyDisplay = (order.status || '').trim().toLowerCase().replace(/\s+/g, '_');
+            const statusLabelMap = {
+              awaiting_payment: 'Payment failed',
+              pending_payment: 'Awaiting payment',
+              payment_failed: 'Payment failed',
+              payment_successful: 'Payment successful',
+              packing: 'Packing',
+              out_for_delivery: 'Out for delivery',
+              ready_for_pickup: 'Ready for pickup',
+              pickup_pending: 'Pickup pending',
+              completed: 'Completed',
+              cancelled: 'Cancelled',
+              cancelled_pending_payment: 'Cancelled',
+              cancelled_payment_failed: 'Cancelled',
+              refund_requested: 'Refund requested',
+              refund_rejected: 'Refund rejected',
+              refund_completed: 'Refunded',
+              refunded: 'Cancelled',
+              partially_refunded: 'Cancelled'
+            };
+            const statusLabel = statusLabelMap[statusKeyDisplay] || (order.status || 'placed');
             const isStripePayment = (order.paymentMethod || '').toLowerCase() === 'stripe';
             const refundStatusKey = refund ? (refund.status || '').trim().toLowerCase().replace(/\\s+/g, '_') : '';
             const refundLabels = {
               requested: 'Requested',
-              approved: 'Approved',
+              approved: 'Refunded',
               rejected: 'Rejected',
               processing: 'Processing',
               refunded: 'Refunded',
               failed: 'Failed',
               manual_review: 'Manual review',
-              completed: 'Completed'
+              completed: 'Refunded'
             };
             const refundLabel = refund ? (refundLabels[refundStatusKey] || refund.status) : '';
+            const refundTypeRaw = refund ? (refund.refundType || '').trim().toLowerCase() : '';
+            const refundTypeLabel = refundTypeRaw
+              ? (refundTypeRaw.includes('partial') ? 'Partial refund' : 'Full refund')
+              : 'Refund';
           %>
           <div class="muted">Status</div><div><%= statusLabel %></div>
           <% if (refund) { %>
             <div class="muted">Refund</div>
             <div>
-              <span class="status-badge" data-status="<%= refundStatusKey %>"><%= refundLabel %></span>
+              <span class="status-badge" data-status="<%= refundStatusKey %>"><%= refundTypeLabel %>: <%= refundLabel %></span>
               <a class="btn" style="padding:4px 8px; font-size:12px;" href="/refunds/<%= refund.id %>">View</a>
             </div>
           <% } %>
@@ -218,18 +254,17 @@ th { color:var(--muted); font-weight:700; }
           const pickupActive = (order.pickupCodeStatus || '').toLowerCase() === 'active';
           const methodLower = (order.paymentMethod || '').toLowerCase();
           const statusKey = statusLower.replace(/\s+/g, '_');
-          const eligibleRefund = ['payment_successful','packing','out_for_delivery','ready_for_pickup','pickup_pending'].includes(statusKey);
-          const hasRefund = !!refund;
-          const paidStatuses = ['payment successful','payment_successful','packing','out for delivery','ready for pickup','completed'];
-          const isPaid = paidStatuses.includes(statusLower);
-          const isFailed = statusLower === 'payment failed' || statusLower === 'payment_failed';
-          const isPending = statusLower === 'pending_payment';
+          const isCancelledStatus = statusKey.startsWith('cancelled') || statusKey === 'refunded' || statusKey === 'partially_refunded';
+          const eligibleRefund = ['payment_successful','packing','out_for_delivery','ready_for_pickup','pickup_pending','completed','delivered','refund_rejected'].includes(statusKey);
+          const isPaid = ['payment_successful','packing','out_for_delivery','ready_for_pickup','pickup_pending','completed'].includes(statusKey);
+          const isFailed = statusKey === 'payment_failed';
+          const isPending = statusKey === 'pending_payment' || statusKey === 'awaiting_payment';
           const canCancel = isPending || isFailed;
           const canRetry =
             (isPending || isFailed) &&
             (methodLower === 'stripe' || methodLower === 'paypal' || methodLower === 'nets-qr' || methodLower === 'nets');
           const canRefund = false;
-          const canInvoice = isPaid;
+          const canInvoice = !isCancelledStatus && ['payment_successful','packing','out_for_delivery','ready_for_pickup','pickup_pending','completed','refund_rejected'].includes(statusKey);
         %>
         <div style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
       <a href="<%= backLink %>" class="btn"><- Back to orders</a>
@@ -237,24 +272,20 @@ th { color:var(--muted); font-weight:700; }
             <a class="btn primary" href="/orders/<%= order.id %>/invoice" target="_blank">Invoice (PDF)</a>
           <% } %>
           <% if (eligibleRefund && !canCancel && !hasRefund) { %>
-            <% if (statusLower === 'payment successful' || statusLower === 'payment_successful') { %>
-              <form method="POST" action="/orders/<%= order.id %>/refund" style="margin:0;">
-                <button class="btn danger" type="submit">Request refund</button>
-              </form>
-            <% } else { %>
-              <a class="btn danger" href="/refunds/request/<%= order.id %>">Request refund</a>
-            <% } %>
+            <a class="btn danger" href="/refunds/request/<%= order.id %>">Request refund</a>
           <% } %>
           <% if (canCancel) { %>
             <form method="POST" action="/orders/<%= order.id %>/cancel" style="margin:0;">
               <button class="btn danger" type="submit">Cancel Order</button>
             </form>
           <% } %>
-          <% if ((order.status || '').trim().toLowerCase() === 'completed') { %>
+          <% if ((order.status || '').trim().toLowerCase().replace(/\s+/g,'_') === 'completed') { %>
             <a class="btn" href="/reviews?productId=<%= (items && items[0] && items[0].productId) ? items[0].productId : '' %>">Add review</a>
           <% } %>
           <% if (canRetry) { %>
-            <a class="btn primary" href="/checkout">Retry payment</a>
+            <form method="POST" action="/orders/<%= order.id %>/retry" style="margin:0;">
+              <button class="btn retry" type="submit">Retry payment</button>
+            </form>
           <% } %>
         </div>
         <% if (canCancel) { %>
@@ -263,13 +294,13 @@ th { color:var(--muted); font-weight:700; }
           <div class="muted" style="margin-top:6px; font-size:12px;">Refund requests are reviewed by admin.</div>
         <% } else if (hasRefund) { %>
           <div class="muted" style="margin-top:6px; font-size:12px;">Refund request submitted.</div>
-        <% } else if (statusKey === 'completed' || statusKey === 'cancelled' || statusKey === 'refunded') { %>
+        <% } else if (statusKey === 'completed' || statusKey.startsWith('cancelled') || statusKey === 'refunded') { %>
           <div class="muted" style="margin-top:6px; font-size:12px;">Refund not available for completed orders.</div>
         <% } %>
         <% if (canRetry) { %>
           <div class="muted" style="margin-top:6px; font-size:12px;">Payment is pending/failed. Retry to complete payment.</div>
         <% } %>
-        <% if (isPickup && statusLower === 'ready for pickup' && pickupActive) { %>
+        <% if (isPickup && statusKey === 'ready_for_pickup' && pickupActive) { %>
           <div style="margin-top:10px; padding:12px; border:1px dashed var(--border); border-radius:12px;">
             <div style="font-weight:700;">Pickup Code: <%= order.pickupCode %></div>
             <div class="muted" style="font-size:12px;">Show this code to staff to collect your items.</div>
@@ -280,4 +311,5 @@ th { color:var(--muted); font-weight:700; }
   </div>
 </body>
 </html>
+
 

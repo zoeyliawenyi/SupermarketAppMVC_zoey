@@ -411,26 +411,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
 </head>
 <body>
   <div class="shell">
-    <nav class="nav">
-      <div class="brand">
-        <span class="dot"></span>
-        ZozoMart
-      </div>
-      <div class="nav-links">
-        <a href="/shopping">Home</a>
-        <a href="/favorites">Favourites</a>
-        <a href="/cart" class="cart-link">Cart <% if (cartCount > 0) { %><span class="cart-badge"><%= cartCount %></span><% } %></a>
-        <% if (user && user.role === 'admin') { %><a href="/inventory">Inventory</a><% } %>
-        <details class="user-menu">
-          <summary>?? <%= user.username %> ?</summary>
-          <div class="dropdown">
-            <a href="/account">My Account</a>
-            <a href="/orders">My Orders</a>
-            <a href="/logout">Logout</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    <%- include('partials/nav') %>
 
     <div class="hero-card" style="margin-top:20px;">
       <div class="section-head">
@@ -530,6 +511,7 @@ th { color: var(--muted); font-weight: 600; font-size: 13px; }
   </script>
 </body>
 </html>
+
 
 
 
